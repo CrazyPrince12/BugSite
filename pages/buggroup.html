@@ -1,0 +1,164 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knut-Bug | Bug Groupe</title>
+  <link rel="stylesheet" href="/knut.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 450px;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #6b7280;
+      letter-spacing: 2px;
+      margin-bottom: 30px;
+    }
+    .input-box {
+      width: 100%;
+      padding: 15px 18px;
+      background: #111118;
+      border: 1.5px solid #374151;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 14px;
+      text-align: center;
+      margin-bottom: 20px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .input-box:focus { border-color: #8b5cf6; }
+    .input-box::placeholder { color: #4b5563; font-size: 12px; }
+    .command-select {
+      width: 100%;
+      padding: 15px 18px;
+      background: #111118;
+      border: 1.5px solid #374151;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      margin-bottom: 20px;
+      outline: none;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px;
+      margin-bottom: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      color: #fff;
+      transition: all 0.2s;
+    }
+    .btn-execute {
+      background: linear-gradient(135deg, #8b5cf6, #6366f1);
+    }
+    .btn-back {
+      background: transparent;
+      border: 1px solid #374151;
+      color: #6b7280;
+    }
+    .result {
+      font-size: 13px;
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .result.ok { background: #064e3b; color: #6ee7b7; }
+    .result.err { background: #4c0519; color: #fca5a5; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">BUG GROUPE</div>
+    <div class="subtitle">EXECUTER UN BUG SUR UN GROUPE</div>
+
+    <input type="text" class="input-box" id="groupLink" placeholder="Lien du groupe (https://chat.whatsapp.com/...)">
+    
+    <select class="command-select" id="commandSelect">
+      <option value="">Selectionner une commande</option>
+      <option value="vortex">Vortex</option>
+      <option value="knut-ravage">Knut-Ravage</option>
+    </select>
+
+    <button class="btn btn-execute" onclick="executeBug()">[>>] EXECUTER</button>
+    <div class="result hidden" id="result"></div>
+    <a href="/buglist" class="btn btn-back">[<] Retour</a>
+  </div>
+
+  <script>
+    async function executeBug() {
+      const groupLink = document.getElementById('groupLink').value.trim();
+      const command = document.getElementById('commandSelect').value;
+      const resultEl = document.getElementById('result');
+
+      if (!groupLink) {
+        showResult(false, 'Veuillez entrer le lien du groupe');
+        return;
+      }
+
+      if (!command) {
+        showResult(false, 'Veuillez selectionner une commande');
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/bot/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ command, groupLink })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          showResult(true, data.result?.message || '[OK] Execute !');
+        } else {
+          showResult(false, data.message || 'Erreur');
+        }
+      } catch (e) {
+        showResult(false, 'Erreur reseau');
+      }
+    }
+
+    function showResult(ok, msg) {
+      const resultEl = document.getElementById('result');
+      resultEl.className = 'result ' + (ok ? 'ok' : 'err');
+      resultEl.textContent = msg;
+      resultEl.classList.remove('hidden');
+      setTimeout(() => resultEl.classList.add('hidden'), 4000);
+    }
+  </script>
+</body>
+</html>

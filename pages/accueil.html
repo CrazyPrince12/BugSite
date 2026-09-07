@@ -1,0 +1,148 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knut-Bug | Accueil</title>
+  <link rel="stylesheet" href="/knut.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 430px;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 34px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      font-size: 10px;
+      color: #6b7280;
+      letter-spacing: 3px;
+      margin-bottom: 36px;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 10px;
+      width: 100%;
+      padding: 17px;
+      margin-bottom: 14px;
+      border: none;
+      border-radius: 13px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      color: #fff;
+      transition: all 0.2s;
+    }
+    .btn:active { transform: scale(0.97); }
+    .btn-connect {
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    }
+    .btn-bug {
+      background: linear-gradient(135deg, #f59e0b, #ef4444);
+    }
+    .btn-bug.locked {
+      background: #1a1a24;
+      color: #4b5563;
+      cursor: not-allowed;
+      pointer-events: none;
+    }
+    .btn-knut {
+      background: linear-gradient(135deg, #22c55e, #10b981);
+    }
+    .btn-logout {
+      background: transparent;
+      border: 1px solid #374151;
+      color: #6b7280;
+      margin-top: 10px;
+    }
+    .status {
+      font-size: 12px;
+      margin-bottom: 28px;
+      color: #6b7280;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+    }
+    .dot {
+      width: 9px; height: 9px;
+      border-radius: 50%;
+      display: inline-block;
+    }
+    .dot.on { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
+    .dot.off { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+    .icon { font-size: 18px; font-weight: 900; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">KNUT-BUG</div>
+    <div class="subtitle">CONTROLE WHATSAPP</div>
+
+    <div class="status" id="status">
+      <span class="dot off" id="statusDot"></span>
+      <span id="statusText">Bot deconnecte</span>
+    </div>
+
+    <a href="/pair" class="btn btn-connect">
+      <span class="icon">[+]</span> CONNECTER UN NUMERO
+    </a>
+    <a href="/buglist" class="btn btn-bug locked" id="btnBug">
+      <span class="icon">[!]</span> BUG LIST
+    </a>
+    <a href="https://wa.me/237673941535" target="_blank" class="btn btn-knut">
+      <span class="icon">[@]</span> CONTACTER KNUT
+    </a>
+    <a href="/logout" class="btn btn-logout">Se deconnecter</a>
+  </div>
+
+  <script>
+    const statusDot = document.getElementById('statusDot');
+    const statusText = document.getElementById('statusText');
+    const btnBug = document.getElementById('btnBug');
+
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/bot/status');
+        const data = await res.json();
+        
+        if (data.connected) {
+          statusDot.className = 'dot on';
+          statusText.textContent = 'Bot connecte';
+          btnBug.classList.remove('locked');
+          btnBug.href = '/buglist';
+        } else {
+          statusDot.className = 'dot off';
+          statusText.textContent = 'Bot deconnecte';
+          btnBug.classList.add('locked');
+          btnBug.removeAttribute('href');
+        }
+      } catch (e) {}
+    }
+
+    checkStatus();
+    setInterval(checkStatus, 5000);
+  </script>
+</body>
+</html>

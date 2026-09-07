@@ -1,0 +1,535 @@
+/* ============================================================
+   KNUT-BUG — Styles globaux
+   ============================================================ */
+
+/* --- Reset --- */
+*, *::before, *::after {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+/* --- Base --- */
+html {
+  font-size: 16px;
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+}
+
+body {
+  background: #0a0a0f;
+  color: #e0e0e0;
+  font-family: 'Segoe UI', system-ui, -apple-system, sans-serif;
+  min-height: 100vh;
+  line-height: 1.5;
+}
+
+/* --- Liens --- */
+a {
+  color: #818cf8;
+  text-decoration: none;
+  transition: color 0.2s;
+}
+
+a:hover {
+  color: #a5b4fc;
+}
+
+/* --- Scrollbar --- */
+::-webkit-scrollbar {
+  width: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #0a0a0f;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #1f1f2e;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #374151;
+}
+
+/* --- Selection --- */
+::selection {
+  background: #6366f1;
+  color: #fff;
+}
+
+/* --- Inputs generiques --- */
+input, textarea, select {
+  font-family: inherit;
+  font-size: inherit;
+  color: #e0e0e0;
+}
+
+input::placeholder, textarea::placeholder {
+  color: #4b5563;
+}
+
+/* --- Focus --- */
+input:focus, textarea:focus, select:focus, button:focus {
+  outline: none;
+}
+
+/* --- Boutons generiques --- */
+button {
+  font-family: inherit;
+  cursor: pointer;
+  border: none;
+}
+
+button:disabled {
+  cursor: not-allowed;
+  opacity: 0.5;
+}
+
+/* --- Animations --- */
+@keyframes fadeIn {
+  from { opacity: 0; transform: translateY(10px); }
+  to   { opacity: 1; transform: translateY(0); }
+}
+
+@keyframes pulse {
+  0%, 100% { opacity: 1; }
+  50%      { opacity: 0.5; }
+}
+
+@keyframes slideIn {
+  from { opacity: 0; transform: translateX(-20px); }
+  to   { opacity: 1; transform: translateX(0); }
+}
+
+.fade-in {
+  animation: fadeIn 0.3s ease-out;
+}
+
+.slide-in {
+  animation: slideIn 0.3s ease-out;
+}
+
+.pulse {
+  animation: pulse 2s infinite;
+}
+
+/* --- Classes utilitaires --- */
+.hidden {
+  display: none !important;
+}
+
+.text-center {
+  text-align: center;
+}
+
+.text-error {
+  color: #ef4444;
+}
+
+.text-success {
+  color: #22c55e;
+}
+
+.text-muted {
+  color: #6b7280;
+}
+
+.mt-1 { margin-top: 8px; }
+.mt-2 { margin-top: 16px; }
+.mt-3 { margin-top: 24px; }
+.mb-1 { margin-bottom: 8px; }
+.mb-2 { margin-bottom: 16px; }
+.mb-3 { margin-bottom: 24px; }
+
+/* --- Container --- */
+.knut-container {
+  width: 100%;
+  max-width: 450px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+/* --- Logo --- */
+.knut-logo {
+  font-size: 34px;
+  font-weight: 900;
+  letter-spacing: 5px;
+  text-align: center;
+  background: linear-gradient(135deg, #6366f1, #a855f7);
+  -webkit-background-clip: text;
+  -webkit-text-fill-color: transparent;
+  background-clip: text;
+}
+
+.knut-logo-sm {
+  font-size: 26px;
+  font-weight: 900;
+  letter-spacing: 4px;
+  text-align: center;
+}
+
+.knut-subtitle {
+  font-size: 10px;
+  color: #6b7280;
+  letter-spacing: 3px;
+  text-align: center;
+  text-transform: uppercase;
+}
+
+/* --- Inputs --- */
+.knut-input {
+  width: 100%;
+  padding: 14px 16px;
+  background: #111118;
+  border: 1.5px solid #1f1f2e;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  transition: border-color 0.2s, box-shadow 0.2s;
+}
+
+.knut-input:focus {
+  border-color: #6366f1;
+  box-shadow: 0 0 0 3px rgba(99, 102, 241, 0.1);
+}
+
+.knut-input::placeholder {
+  color: #4b5563;
+}
+
+/* --- Select --- */
+.knut-select {
+  width: 100%;
+  padding: 14px 16px;
+  background: #111118;
+  border: 1.5px solid #1f1f2e;
+  border-radius: 10px;
+  color: #fff;
+  font-size: 15px;
+  cursor: pointer;
+  appearance: none;
+  background-image: url("data:image/svg+xml,%3Csvg width='12' height='8' viewBox='0 0 12 8' fill='none' xmlns='http://www.w3.org/2000/svg'%3E%3Cpath d='M1 1.5L6 6.5L11 1.5' stroke='%236b7280' stroke-width='1.5' stroke-linecap='round' stroke-linejoin='round'/%3E%3C/svg%3E");
+  background-repeat: no-repeat;
+  background-position: right 16px center;
+  padding-right: 40px;
+}
+
+.knut-select:focus {
+  border-color: #6366f1;
+}
+
+.knut-select option {
+  background: #111118;
+  color: #e0e0e0;
+}
+
+/* --- Boutons --- */
+.knut-btn {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  width: 100%;
+  padding: 15px 20px;
+  border-radius: 12px;
+  font-size: 15px;
+  font-weight: 700;
+  cursor: pointer;
+  transition: all 0.2s ease;
+  border: none;
+  color: #fff;
+  text-decoration: none;
+}
+
+.knut-btn:active {
+  transform: scale(0.97);
+}
+
+.knut-btn:disabled {
+  background: #1f1f2e !important;
+  color: #4b5563 !important;
+  cursor: not-allowed;
+}
+
+/* Variantes */
+.knut-btn-primary {
+  background: linear-gradient(135deg, #6366f1, #8b5cf6);
+}
+
+.knut-btn-danger {
+  background: linear-gradient(135deg, #ef4444, #dc2626);
+}
+
+.knut-btn-warning {
+  background: linear-gradient(135deg, #f59e0b, #ef4444);
+}
+
+.knut-btn-success {
+  background: linear-gradient(135deg, #22c55e, #10b981);
+}
+
+.knut-btn-outline {
+  background: transparent;
+  border: 1px solid #374151;
+  color: #6b7280;
+}
+
+.knut-btn-outline:hover {
+  border-color: #6366f1;
+  color: #818cf8;
+}
+
+/* --- Cartes / Cards --- */
+.knut-card {
+  background: #111118;
+  border: 1px solid #1f1f2e;
+  border-radius: 14px;
+  padding: 20px;
+  margin-bottom: 14px;
+}
+
+.knut-card-header {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-bottom: 10px;
+}
+
+.knut-card-icon {
+  font-size: 16px;
+  font-weight: 900;
+  color: #f59e0b;
+  width: 24px;
+  text-align: center;
+}
+
+.knut-card-title {
+  font-size: 16px;
+  font-weight: 700;
+}
+
+.knut-card-desc {
+  font-size: 11px;
+  color: #6b7280;
+  margin-bottom: 12px;
+  margin-left: 34px;
+}
+
+/* --- Code Box --- */
+.knut-code-box {
+  background: #111118;
+  border: 2px dashed #6366f1;
+  border-radius: 14px;
+  padding: 22px;
+  font-size: 30px;
+  font-weight: 900;
+  letter-spacing: 10px;
+  color: #818cf8;
+  text-align: center;
+  word-break: break-all;
+}
+
+.knut-code-info {
+  font-size: 12px;
+  color: #6b7280;
+  margin-top: 12px;
+  line-height: 1.6;
+  text-align: center;
+}
+
+.knut-code-info strong {
+  color: #a78bfa;
+}
+
+/* --- Status indicators --- */
+.knut-status {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  font-size: 12px;
+  color: #6b7280;
+}
+
+.knut-dot {
+  width: 9px;
+  height: 9px;
+  border-radius: 50%;
+  display: inline-block;
+}
+
+.knut-dot-on {
+  background: #22c55e;
+  box-shadow: 0 0 10px rgba(34, 197, 94, 0.5);
+}
+
+.knut-dot-off {
+  background: #ef4444;
+  box-shadow: 0 0 6px rgba(239, 68, 68, 0.5);
+}
+
+/* --- Resultats --- */
+.knut-result {
+  font-size: 13px;
+  padding: 12px;
+  border-radius: 10px;
+  text-align: center;
+  animation: fadeIn 0.3s ease-out;
+}
+
+.knut-result-ok {
+  background: #064e3b;
+  color: #6ee7b7;
+  border: 1px solid #065f46;
+}
+
+.knut-result-err {
+  background: #4c0519;
+  color: #fca5a5;
+  border: 1px solid #701a1a;
+}
+
+/* --- Alertes --- */
+.knut-alert {
+  padding: 14px;
+  border-radius: 10px;
+  font-size: 14px;
+  text-align: center;
+  margin-bottom: 16px;
+}
+
+.knut-alert-info {
+  background: #0c1929;
+  color: #93c5fd;
+  border: 1px solid #1e3a5f;
+}
+
+.knut-alert-success {
+  background: #064e3b;
+  color: #6ee7b7;
+  border: 1px solid #065f46;
+}
+
+.knut-alert-error {
+  background: #4c0519;
+  color: #fca5a5;
+  border: 1px solid #701a1a;
+}
+
+/* --- Badges --- */
+.knut-badge {
+  display: inline-block;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-size: 11px;
+  font-weight: 700;
+  letter-spacing: 0.5px;
+}
+
+.knut-badge-primary {
+  background: rgba(99, 102, 241, 0.2);
+  color: #818cf8;
+}
+
+.knut-badge-success {
+  background: rgba(34, 197, 94, 0.2);
+  color: #4ade80;
+}
+
+.knut-badge-danger {
+  background: rgba(239, 68, 68, 0.2);
+  color: #f87171;
+}
+
+/* --- Loader --- */
+.knut-loader {
+  display: inline-block;
+  width: 20px;
+  height: 20px;
+  border: 2px solid #374151;
+  border-top-color: #6366f1;
+  border-radius: 50%;
+  animation: spin 0.6s linear infinite;
+}
+
+@keyframes spin {
+  to { transform: rotate(360deg); }
+}
+
+/* --- Separator --- */
+.knut-separator {
+  height: 1px;
+  background: #1f1f2e;
+  margin: 20px 0;
+  border: none;
+}
+
+/* --- Tooltip --- */
+.knut-tooltip {
+  position: relative;
+  cursor: help;
+}
+
+.knut-tooltip::after {
+  content: attr(data-tooltip);
+  position: absolute;
+  bottom: 100%;
+  left: 50%;
+  transform: translateX(-50%);
+  padding: 6px 12px;
+  background: #1f1f2e;
+  color: #e0e0e0;
+  font-size: 11px;
+  border-radius: 6px;
+  white-space: nowrap;
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity 0.2s;
+}
+
+.knut-tooltip:hover::after {
+  opacity: 1;
+}
+
+/* --- Section Title --- */
+.knut-section-title {
+  font-size: 12px;
+  font-weight: 700;
+  color: #6b7280;
+  letter-spacing: 2px;
+  text-transform: uppercase;
+  margin-bottom: 14px;
+}
+
+/* --- Responsive --- */
+@media (max-width: 480px) {
+  .knut-container {
+    padding: 16px;
+  }
+
+  .knut-logo {
+    font-size: 28px;
+    letter-spacing: 3px;
+  }
+
+  .knut-code-box {
+    font-size: 24px;
+    letter-spacing: 6px;
+    padding: 16px;
+  }
+}
+
+/* --- Dark mode specific --- */
+@media (prefers-color-scheme: dark) {
+  /* Deja en dark par defaut */
+}
+
+/* --- Print --- */
+@media print {
+  body {
+    background: #fff;
+    color: #000;
+  }
+}

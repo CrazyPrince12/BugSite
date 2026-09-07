@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knut-Bug | Connecter</title>
+  <link rel="stylesheet" href="/knut.css">
+  <style>
+    body {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      min-height: 100vh;
+    }
+    .box {
+      width: 100%;
+      max-width: 420px;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    h1 {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 28px;
+    }
+    label {
+      display: block;
+      font-size: 13px;
+      color: #6b7280;
+      margin-bottom: 6px;
+      text-align: left;
+    }
+    input {
+      width: 100%;
+      padding: 15px 16px;
+      background: #111118;
+      border: 1.5px solid #374151;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 17px;
+      text-align: center;
+      letter-spacing: 2px;
+      margin-bottom: 18px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    input:focus { border-color: #6366f1; }
+    input::placeholder { color: #4b5563; letter-spacing: 1px; font-size: 14px; }
+    button {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      color: #fff;
+      transition: all 0.2s;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+    }
+    button:active { transform: scale(0.97); }
+    button:disabled { background: #1f1f2e; color: #4b5563; cursor: not-allowed; }
+    .btn-stop {
+      background: linear-gradient(135deg, #ef4444, #dc2626);
+    }
+    .btn-back {
+      background: transparent;
+      border: 1px solid #374151;
+      color: #6b7280;
+      margin-top: 12px;
+    }
+    .code-box {
+      background: #111118;
+      border: 2px dashed #6366f1;
+      border-radius: 14px;
+      padding: 24px;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 10px;
+      color: #818cf8;
+      word-break: break-all;
+      margin: 20px 0;
+    }
+    .code-info {
+      font-size: 12px;
+      color: #6b7280;
+      line-height: 1.7;
+      margin-bottom: 20px;
+    }
+    .code-info strong { color: #a78bfa; }
+    .alert-ok {
+      background: #064e3b;
+      color: #6ee7b7;
+      padding: 14px;
+      border-radius: 10px;
+      font-size: 14px;
+      margin-bottom: 20px;
+    }
+    .error {
+      color: #ef4444;
+      font-size: 13px;
+      margin-top: 8px;
+    }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="box">
+    <h1>CONNECTER</h1>
+
+    <!-- Formulaire de saisie -->
+    <div id="formConnect">
+      <label>Numero sans indicatif (ex: 673941535)</label>
+      <input type="tel" id="numInput" placeholder="600000000" maxlength="15" autocomplete="off">
+      <button id="btnGen" onclick="generateCode()">[&gt;&gt;] GENERER LE CODE</button>
+    </div>
+
+    <!-- Code de pairing -->
+    <div id="codeContainer" class="hidden">
+      <div class="code-box" id="codeBox"></div>
+      <div class="code-info">
+        Ouvrez WhatsApp &gt;<br>
+        <strong>Appareils lies</strong> &gt;<br>
+        <strong>Lier un appareil</strong> &gt;<br>
+        Entrez le code ci-dessus
+      </div>
+    </div>
+
+    <!-- Connecte -->
+    <div id="connectedBox" class="hidden">
+      <div class="alert-ok">[OK] Bot connecte avec succes !</div>
+    </div>
+
+    <div class="error" id="error"></div>
+
+    <button class="btn-stop hidden" id="btnStop" onclick="stopBot()">[X] DECONNECTER</button>
+    <a href="/accueil"><button type="button" class="btn-back">[&lt;] Retour</button></a>
+  </div>
+
+  <script>
+    const formConnect = document.getElementById('formConnect');
+    const codeContainer = document.getElementById('codeContainer');
+    const codeBox = document.getElementById('codeBox');
+    const connectedBox = document.getElementById('connectedBox');
+    const btnGen = document.getElementById('btnGen');
+    const btnStop = document.getElementById('btnStop');
+    const errorEl = document.getElementById('error');
+
+    // Verifier si deja connecte
+    async function checkStatus() {
+      try {
+        const res = await fetch('/api/bot/status');
+        const data = await res.json();
+        
+        if (data.connected) {
+          formConnect.classList.add('hidden');
+          codeContainer.classList.add('hidden');
+          connectedBox.classList.remove('hidden');
+          btnStop.classList.remove('hidden');
+        }
+      } catch (e) {
+        // Silencieux
+      }
+    }
+
+    async function generateCode() {
+      const numInput = document.getElementById('numInput');
+      const number = numInput.value.trim();
+
+      if (!number) {
+        errorEl.textContent = 'Veuillez entrer un numero';
+        return;
+      }
+
+      errorEl.textContent = '';
+      btnGen.textContent = 'Generation...';
+      btnGen.disabled = true;
+
+      try {
+        const res = await fetch('/api/bot/pair', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ number })
+        });
+        const data = await res.json();
+
+        if (data.success && data.pairingCode) {
+          codeBox.textContent = data.pairingCode;
+          codeContainer.classList.remove('hidden');
+          formConnect.classList.add('hidden');
+          connectedBox.classList.add('hidden');
+
+          // Surveiller la connexion
+          const interval = setInterval(async () => {
+            const statusRes = await fetch('/api/bot/status');
+            const statusData = await statusRes.json();
+            
+            if (statusData.connected) {
+              clearInterval(interval);
+              codeContainer.classList.add('hidden');
+              connectedBox.classList.remove('hidden');
+              btnStop.classList.remove('hidden');
+
+              // Rediriger vers buglist apres 2 secondes
+              setTimeout(() => {
+                window.location.href = '/buglist';
+              }, 2000);
+            }
+          }, 3000);
+
+          // Timeout apres 5 minutes
+          setTimeout(() => {
+            clearInterval(interval);
+            if (!connectedBox.classList.contains('hidden') === false) {
+              errorEl.textContent = 'Temps ecoule. Reessayez.';
+              formConnect.classList.remove('hidden');
+              codeContainer.classList.add('hidden');
+            }
+          }, 300000);
+
+        } else if (data.success && data.connected) {
+          connectedBox.classList.remove('hidden');
+          btnStop.classList.remove('hidden');
+          formConnect.classList.add('hidden');
+          codeContainer.classList.add('hidden');
+
+          setTimeout(() => {
+            window.location.href = '/buglist';
+          }, 1500);
+
+        } else {
+          errorEl.textContent = data.message || 'Erreur lors de la generation';
+        }
+      } catch (e) {
+        errorEl.textContent = 'Erreur reseau';
+      }
+
+      btnGen.textContent = '[>>] GENERER LE CODE';
+      btnGen.disabled = false;
+    }
+
+    async function stopBot() {
+      try {
+        await fetch('/api/bot/stop', { method: 'POST' });
+        formConnect.classList.remove('hidden');
+        codeContainer.classList.add('hidden');
+        connectedBox.classList.add('hidden');
+        btnStop.classList.add('hidden');
+        errorEl.textContent = '';
+      } catch (e) {
+        errorEl.textContent = 'Erreur deconnexion';
+      }
+    }
+
+    checkStatus();
+  </script>
+</body>
+</html>

@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knut-Bug | Bug Numero</title>
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 450px;
+      padding: 40px 20px;
+      text-align: center;
+    }
+    .logo {
+      font-size: 26px;
+      font-weight: 900;
+      letter-spacing: 4px;
+      background: linear-gradient(135deg, #ef4444, #f59e0b);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 10px;
+    }
+    .subtitle {
+      font-size: 11px;
+      color: #6b7280;
+      letter-spacing: 2px;
+      margin-bottom: 30px;
+    }
+    .input-box {
+      width: 100%;
+      padding: 15px 18px;
+      background: #111118;
+      border: 1.5px solid #374151;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 16px;
+      text-align: center;
+      letter-spacing: 2px;
+      margin-bottom: 20px;
+      outline: none;
+      transition: border 0.2s;
+    }
+    .input-box:focus { border-color: #f59e0b; }
+    .input-box::placeholder { color: #4b5563; }
+    .command-select {
+      width: 100%;
+      padding: 15px 18px;
+      background: #111118;
+      border: 1.5px solid #374151;
+      border-radius: 12px;
+      color: #fff;
+      font-size: 15px;
+      margin-bottom: 20px;
+      outline: none;
+    }
+    .btn {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      gap: 8px;
+      width: 100%;
+      padding: 16px;
+      margin-bottom: 14px;
+      border: none;
+      border-radius: 12px;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+      text-decoration: none;
+      color: #fff;
+      transition: all 0.2s;
+    }
+    .btn-execute {
+      background: linear-gradient(135deg, #ef4444, #f59e0b);
+    }
+    .btn-back {
+      background: transparent;
+      border: 1px solid #374151;
+      color: #6b7280;
+    }
+    .result {
+      font-size: 13px;
+      margin-top: 10px;
+      padding: 12px;
+      border-radius: 10px;
+      text-align: center;
+    }
+    .result.ok { background: #064e3b; color: #6ee7b7; }
+    .result.err { background: #4c0519; color: #fca5a5; }
+    .hidden { display: none; }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">BUG NUMERO</div>
+    <div class="subtitle">EXECUTER UN BUG SUR UNE CIBLE</div>
+
+    <input type="tel" class="input-box" id="targetNumber" placeholder="237600000000">
+    
+    <select class="command-select" id="commandSelect">
+      <option value="">Selectionner une commande</option>
+      <option value="katchan-bug">Katchan-Bug</option>
+      <option value="thorf-bug">Thorf-Bug</option>
+      <option value="carnage-bug">Caranage-Bug</option>
+    </select>
+
+    <button class="btn btn-execute" onclick="executeBug()">[>>] EXECUTER</button>
+    <div class="result hidden" id="result"></div>
+    <a href="/buglist" class="btn btn-back">[<] Retour</a>
+  </div>
+
+  <script>
+    async function executeBug() {
+      const target = document.getElementById('targetNumber').value.trim();
+      const command = document.getElementById('commandSelect').value;
+      const resultEl = document.getElementById('result');
+
+      if (!target) {
+        showResult(false, 'Veuillez entrer un numéro cible');
+        return;
+      }
+
+      if (!command) {
+        showResult(false, 'Veuillez sélectionner une commande');
+        return;
+      }
+
+      if (!/^237[0-9]{9}$/.test(target)) {
+        showResult(false, 'Numéro invalide ! Exemple : 237600000000');
+        return;
+      }
+
+      try {
+        resultEl.classList.remove('hidden');
+        resultEl.className = 'result';
+        resultEl.textContent = 'Exécution en cours... Veuillez patienter';
+
+        const res = await fetch('/api/bot/command', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ 
+            command: command,      // "carnage-bug"
+            target: target,
+            args: [target]
+          })
+        });
+
+        const data = await res.json();
+
+        if (data.success) {
+          showResult(true, data.message || 'Carnage-Bug lancé avec succès !');
+        } else {
+          showResult(false, data.message || 'Échec de l\'exécution');
+        }
+      } catch (e) {
+        console.error(e);
+        showResult(false, 'Erreur de connexion au serveur');
+      }
+    }
+
+    function showResult(ok, msg) {
+      const resultEl = document.getElementById('result');
+      resultEl.className = `result ${ok ? 'ok' : 'err'}`;
+      resultEl.textContent = msg;
+      resultEl.classList.remove('hidden');
+      setTimeout(() => resultEl.classList.add('hidden'), 5000);
+    }
+  </script>
+</body>
+</html>

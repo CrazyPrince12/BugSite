@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="fr">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>Knut-Bug | Inscription</title>
+  <link rel="stylesheet" href="/knut.css">
+  <style>
+    * { margin: 0; padding: 0; box-sizing: border-box; }
+    body {
+      background: #0a0a0f;
+      color: #e0e0e0;
+      font-family: 'Segoe UI', sans-serif;
+      min-height: 100vh;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+    }
+    .container {
+      width: 100%;
+      max-width: 400px;
+      padding: 40px 20px;
+    }
+    .logo {
+      text-align: center;
+      font-size: 32px;
+      font-weight: 900;
+      letter-spacing: 5px;
+      background: linear-gradient(135deg, #6366f1, #a855f7);
+      -webkit-background-clip: text;
+      -webkit-text-fill-color: transparent;
+      margin-bottom: 4px;
+    }
+    .subtitle {
+      text-align: center;
+      font-size: 10px;
+      color: #6b7280;
+      letter-spacing: 3px;
+      margin-bottom: 40px;
+    }
+    .input-box {
+      width: 100%;
+      padding: 14px 16px;
+      background: #111118;
+      border: 1.5px solid #1f1f2e;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 15px;
+      outline: none;
+      margin-bottom: 14px;
+      transition: border 0.2s;
+    }
+    .input-box:focus { border-color: #6366f1; }
+    .btn {
+      width: 100%;
+      padding: 15px;
+      background: linear-gradient(135deg, #6366f1, #8b5cf6);
+      border: none;
+      border-radius: 10px;
+      color: #fff;
+      font-size: 15px;
+      font-weight: 700;
+      cursor: pointer;
+    }
+    .btn:active { transform: scale(0.97); }
+    .link {
+      text-align: center;
+      margin-top: 18px;
+      font-size: 13px;
+      color: #6b7280;
+    }
+    .link a { color: #818cf8; text-decoration: none; }
+    .error { color: #ef4444; font-size: 13px; text-align: center; margin-top: 10px; }
+    .label {
+      font-size: 12px;
+      color: #6b7280;
+      margin-bottom: 6px;
+      display: block;
+    }
+  </style>
+</head>
+<body>
+  <div class="container">
+    <div class="logo">KNUT-BUG</div>
+    <div class="subtitle">INSCRIPTION</div>
+
+    <input type="text" class="input-box" id="username" placeholder="Pseudo" autocomplete="off">
+    <input type="password" class="input-box" id="password" placeholder="Mot de passe (6 min)">
+    <span class="label">Numero WhatsApp (sans +)</span>
+    <input type="tel" class="input-box" id="number" placeholder="237600000000">
+    <button class="btn" onclick="register()">S'INSCRIRE</button>
+
+    <div class="error" id="error"></div>
+
+    <div class="link">
+      Deja un compte ? <a href="/login">Se connecter</a>
+    </div>
+  </div>
+
+  <script>
+    async function register() {
+      const username = document.getElementById('username').value.trim();
+      const password = document.getElementById('password').value;
+      const number = document.getElementById('number').value.trim();
+      const errorEl = document.getElementById('error');
+
+      if (!username || !password) {
+        errorEl.textContent = 'Pseudo et mot de passe requis.';
+        return;
+      }
+
+      try {
+        const res = await fetch('/api/register', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ username, password, number })
+        });
+        const data = await res.json();
+
+        if (data.success) {
+          window.location.href = '/login';
+        } else {
+          errorEl.textContent = data.message;
+        }
+      } catch (e) {
+        errorEl.textContent = 'Erreur reseau';
+      }
+    }
+  </script>
+</body>
+</html>
