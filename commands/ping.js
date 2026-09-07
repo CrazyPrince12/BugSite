@@ -24,10 +24,12 @@ export default {
       // ⏱️ Début ping
       const start = Date.now();
 
+      const opts = msg ? { quoted: msg } : {};
+
       await sock.sendMessage(
         cible,
         { text: "> 𝐼'𝑚 𝑐𝑟𝑎𝑧𝑦....𝑚𝑎𝑦𝑏𝑒..." },
-        { quoted: msg }
+        opts
       );
 
       // ⏱️ Fin ping
@@ -39,15 +41,25 @@ export default {
 > ⚡ Latence: ${latency} ms
 > ⏰ ${new Date().toLocaleString()}`;
 
-      // 📸 Envoi image avec caption
-      await sock.sendMessage(
-        cible,
-        {
-          image: imageBuffer,
-          caption: caption
-        },
-        { quoted: msg }
-      );
+      // 📸 Envoi image avec caption si image dispo, sinon texte seul
+      if (imageBuffer) {
+        await sock.sendMessage(
+          cible,
+          {
+            image: imageBuffer,
+            caption: caption
+          },
+          opts
+        );
+      } else {
+        await sock.sendMessage(
+          cible,
+          {
+            text: caption
+          },
+          opts
+        );
+      }
 
       return {
         success: true,
