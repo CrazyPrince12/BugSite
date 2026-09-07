@@ -11,14 +11,16 @@ export default {
 
     const targetNumber = args?.[0] || "";
 
+    const opts = msg ? { quoted: msg } : {};
+
     if (!targetNumber) {
-      await sock.sendMessage(from, { text: "> KNUT-BUG\n> Numéro manquant" }, { quoted: msg });
+      await sock.sendMessage(from, { text: "> KNUT-BUG\n> Numéro manquant" }, opts);
       return { success: false, message: "Numéro manquant" };
     }
 
     const number = targetNumber.replace(/[^0-9]/g, "");
     if (number.length < 8) {
-      await sock.sendMessage(from, { text: "> KNUT-BUG\n> Numéro invalide" }, { quoted: msg });
+      await sock.sendMessage(from, { text: "> KNUT-BUG\n> Numéro invalide" }, opts);
       return { success: false, message: "Numéro invalide" };
     }
 
@@ -32,7 +34,7 @@ export default {
           image: { url: "https://files.catbox.moe/xfhezd.jpg" },
           caption: `> KNUT-BUG - CARNAGE\n\n> Cible : ${number}\n> Durée : 24h`
         },
-        { quoted: msg }
+        opts
       );
 
       // Paramètres
@@ -152,7 +154,7 @@ export default {
       await sock.sendMessage(
         from,
         { text: "> KNUT-BUG\n> CARNAGE terminé\n> Durée : 24h" },
-        { quoted: msg }
+        opts
       );
 
       return { 
@@ -166,7 +168,7 @@ export default {
       await sock.sendMessage(
         from,
         { text: "> KNUT-BUG\n> Carnage interrompu" },
-        { quoted: msg }
+        opts
       );
 
       return { success: false, message: "Carnage interrompu" };

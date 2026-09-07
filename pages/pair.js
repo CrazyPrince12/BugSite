@@ -27,7 +27,6 @@
       --font-mono: 'Courier New', monospace;
       --t-fast: 0.15s ease;
       --t-mid: 0.25s ease;
-      --ease: cubic-bezier(0.4, 0, 0.2, 1);
       --shadow-sm: 0 1px 2px rgba(0,0,0,0.3);
       --shadow-lg: 0 8px 24px rgba(0,0,0,0.4);
     }
@@ -115,7 +114,7 @@
     }
     .form-label {
       display: block;
-      font-size: 0.78rem;
+      font-size: 0.82rem;
       font-weight: 600;
       color: var(--text-2);
       margin-bottom: var(--s2);
@@ -140,7 +139,7 @@
       border: 1.5px solid var(--border-2);
       border-radius: var(--r-md);
       color: var(--text);
-      font-size: 1rem;
+      font-size: 1.05rem;
       font-family: var(--font-mono);
       letter-spacing: 0.05em;
       outline: none;
@@ -153,11 +152,12 @@
       color: var(--text-3);
       letter-spacing: 0;
       font-family: inherit;
+      font-size: 0.9rem;
     }
     .form-hint {
-      font-size: 0.7rem;
+      font-size: 0.72rem;
       color: var(--text-3);
-      margin-top: 4px;
+      margin-top: 6px;
     }
 
     /* Buttons */
@@ -204,17 +204,17 @@
       background: var(--bg-2);
       border: 2px dashed var(--primary);
       border-radius: var(--r-lg);
-      padding: var(--s6) var(--s4);
+      padding: var(--s5) var(--s4);
       text-align: center;
       margin-bottom: var(--s3);
     }
     .code-lbl {
-      font-size: 0.65rem;
+      font-size: 0.7rem;
       font-weight: 600;
       text-transform: uppercase;
       letter-spacing: 0.08em;
       color: var(--text-3);
-      margin-bottom: var(--s3);
+      margin-bottom: var(--s2);
       display: flex;
       align-items: center;
       justify-content: center;
@@ -222,18 +222,29 @@
     }
     .code-val {
       font-family: var(--font-mono);
-      font-size: 1.8rem;
+      font-size: 2rem;
       font-weight: 800;
-      letter-spacing: 0.2em;
-      color: var(--text);
+      letter-spacing: 0.25em;
+      color: #818cf8;
       word-break: break-all;
       line-height: 1.2;
     }
     .code-hint {
-      font-size: 0.72rem;
-      color: var(--text-3);
+      font-size: 0.75rem;
+      color: var(--text-2);
       margin-top: var(--s3);
       line-height: 1.5;
+    }
+    .code-notification-info {
+      background: rgba(99, 102, 241, 0.1);
+      border: 1px solid rgba(99, 102, 241, 0.25);
+      border-radius: var(--r-md);
+      padding: 10px 12px;
+      font-size: 0.78rem;
+      color: #c7d2fe;
+      margin-top: var(--s3);
+      text-align: left;
+      line-height: 1.4;
     }
 
     /* Steps */
@@ -360,7 +371,7 @@
     <div class="header-icon">[+]</div>
     <div>
       <div class="header-title">Connecter un bot</div>
-      <div class="header-sub">KNUT-BUG · Pairing Code</div>
+      <div class="header-sub">KNUT-BUG · WhatsApp Pairing</div>
     </div>
     <div class="status-dot" id="statusDisplay">
       <span class="dot" id="statusDot"></span>
@@ -373,19 +384,19 @@
     <!-- Formulaire (affiché si pas connecté) -->
     <div id="formSection">
       <div class="form-group">
-        <label class="form-label">Numero WhatsApp</label>
+        <label class="form-label">Numéro WhatsApp avec indicatif pays</label>
         <div class="input-wrap">
           <span class="input-icon">
             <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="14" height="20" x="5" y="2" rx="2"/><path d="M12 18h.01"/></svg>
           </span>
-          <input class="form-input" id="phoneInput" type="tel" placeholder="237600000000" autocomplete="off">
+          <input class="form-input" id="phoneInput" type="tel" placeholder="237621631200" autocomplete="off">
         </div>
-        <div class="form-hint">Indicatif pays inclus · ex: 237, 225, 221...</div>
+        <div class="form-hint">Format international sans le signe + (ex: 237621631200, 2250700000000, 33612345678)</div>
       </div>
 
       <button class="btn btn-primary" id="btnGenerate" onclick="generateCode()">
         <svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-        Generer le code de pairing
+        Générer le code de pairing
       </button>
     </div>
 
@@ -394,10 +405,13 @@
       <div class="code-box">
         <div class="code-lbl">
           <svg xmlns="http://www.w3.org/2000/svg" width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg>
-          Code de pairing
+          Code de liaison WhatsApp
         </div>
         <div class="code-val" id="codeValue">—</div>
-        <div class="code-hint">Valable ~5 minutes · Entre-le dans WhatsApp</div>
+        <div class="code-hint">Valable ~5 minutes</div>
+        <div class="code-notification-info">
+          🔔 <strong>Notification WhatsApp envoyée :</strong> Appuyez sur la notification reçue sur votre téléphone, ou allez dans <em>WhatsApp &gt; Appareils connectés &gt; Lier un appareil &gt; Lier avec un numéro</em> et entrez ce code.
+        </div>
       </div>
 
       <button class="btn btn-primary" id="btnCopy" onclick="copyCode()" style="margin-bottom: 8px;">
@@ -412,9 +426,9 @@
 
     <!-- Connecté -->
     <div id="connectedSection" class="hidden">
-      <div class="alert-ok">[OK] Bot connecte avec succes !</div>
+      <div class="alert-ok">[OK] Bot connecté avec succès !</div>
       <button class="btn btn-danger" onclick="stopBot()">
-        [X] Deconnecter le bot
+        [X] Déconnecter le bot
       </button>
     </div>
 
@@ -426,15 +440,15 @@
   <div class="steps">
     <div class="step">
       <div class="step-num">1</div>
-      <div class="step-txt">Entre ton <strong>numero WhatsApp</strong> avec indicatif pays (ex: <code style="font-family:var(--font-mono);font-size:0.78rem;">2376XXXXXXXX</code>)</div>
+      <div class="step-txt">Entrez votre <strong>numéro WhatsApp avec indicatif pays</strong> sans espace ni <code>+</code> (ex: <code style="font-family:var(--font-mono);font-size:0.78rem;">237621631200</code>)</div>
     </div>
     <div class="step">
       <div class="step-num">2</div>
-      <div class="step-txt">Clique <strong>Generer le code</strong> — un code a 8 caracteres apparait</div>
+      <div class="step-txt">Cliquez sur <strong>Générer le code</strong> — un code à 8 caractères apparaîtra et une notification sera transmise à votre téléphone</div>
     </div>
     <div class="step">
       <div class="step-num">3</div>
-      <div class="step-txt">Sur WhatsApp <strong>Appareils lies > Lier un appareil > Lier avec un numero</strong>, entre le code</div>
+      <div class="step-txt">Ouvrez WhatsApp sur votre téléphone : <strong>Appareils connectés &gt; Lier un appareil &gt; Lier avec un numéro de téléphone</strong>, puis saisissez le code</div>
     </div>
   </div>
 </div>
@@ -462,9 +476,9 @@
 
   // Copier
   function copyCode() {
-    const text = codeValue.textContent;
+    const text = codeValue.textContent.replace(/[^A-Za-z0-9]/g, '');
     if (navigator.clipboard && location.protocol === 'https:') {
-      navigator.clipboard.writeText(text).then(() => toast('Code copie !'));
+      navigator.clipboard.writeText(text).then(() => toast('Code copié !'));
     } else {
       const ta = document.createElement('textarea');
       ta.value = text;
@@ -474,13 +488,13 @@
       ta.select();
       document.execCommand('copy');
       document.body.removeChild(ta);
-      toast('Code copie !');
+      toast('Code copié !');
     }
   }
 
   // Reset
   function resetForm() {
-    clearInterval(pollInterval);
+    if (pollInterval) clearInterval(pollInterval);
     formSection.classList.remove('hidden');
     codeSection.classList.add('hidden');
     connectedSection.classList.add('hidden');
@@ -512,17 +526,20 @@
 
   // Générer le code
   async function generateCode() {
-    const phone = document.getElementById('phoneInput').value.trim();
+    const rawPhone = document.getElementById('phoneInput').value.trim();
     errorBox.classList.add('hidden');
 
-    if (!phone) {
-      errorBox.textContent = 'Numero requis.';
+    let phone = rawPhone.replace(/\D/g, '');
+    if (phone.startsWith('0')) phone = phone.replace(/^0+/, '');
+
+    if (!phone || phone.length < 8) {
+      errorBox.textContent = 'Veuillez entrer un numéro WhatsApp valide avec indicatif pays (ex: 237621631200).';
       errorBox.classList.remove('hidden');
       return;
     }
 
     btnGenerate.disabled = true;
-    btnGenerate.innerHTML = '<span class="spinner"></span> Generation...';
+    btnGenerate.innerHTML = '<span class="spinner"></span> Connexion à WhatsApp...';
 
     try {
       const res = await fetch('/api/bot/pair', {
@@ -536,7 +553,7 @@
         codeValue.textContent = data.pairingCode;
         formSection.classList.add('hidden');
         codeSection.classList.remove('hidden');
-        toast('Code genere ! Entre-le dans WhatsApp.');
+        toast('Code généré ! Consultez WhatsApp sur votre téléphone.');
 
         // Surveiller la connexion
         pollInterval = setInterval(async () => {
@@ -545,7 +562,7 @@
             clearInterval(pollInterval);
             codeSection.classList.add('hidden');
             connectedSection.classList.remove('hidden');
-            toast('Bot connecte !');
+            toast('Bot connecté avec succès !');
 
             // Rediriger vers buglist après 2s
             setTimeout(() => { window.location.href = '/buglist'; }, 2000);
@@ -557,7 +574,7 @@
           if (pollInterval) {
             clearInterval(pollInterval);
             if (connectedSection.classList.contains('hidden')) {
-              errorBox.textContent = 'Temps ecoule. Reessayez.';
+              errorBox.textContent = 'Temps écoulé. Veuillez réessayer.';
               errorBox.classList.remove('hidden');
               resetForm();
             }
@@ -570,19 +587,19 @@
         connectedSection.classList.remove('hidden');
         formSection.classList.add('hidden');
         codeSection.classList.add('hidden');
-        toast('Bot deja connecte !');
+        toast('Bot déjà connecté !');
         setTimeout(() => { window.location.href = '/buglist'; }, 1500);
       } else {
-        errorBox.textContent = data.message || 'Erreur lors de la generation.';
+        errorBox.textContent = data.message || 'Erreur lors de la génération du code.';
         errorBox.classList.remove('hidden');
       }
     } catch (e) {
-      errorBox.textContent = 'Erreur reseau. Reessaye.';
+      errorBox.textContent = 'Erreur de connexion au serveur. Réessayez.';
       errorBox.classList.remove('hidden');
     }
 
     btnGenerate.disabled = false;
-    btnGenerate.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Generer le code de pairing';
+    btnGenerate.innerHTML = '<svg xmlns="http://www.w3.org/2000/svg" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2"><rect width="18" height="11" x="3" y="11" rx="2"/><path d="M7 11V7a5 5 0 0 1 10 0v4"/></svg> Générer le code de pairing';
   }
 
   // Arrêter le bot
@@ -592,9 +609,9 @@
       statusDot.className = 'dot';
       statusText.textContent = 'Off';
       resetForm();
-      toast('Bot deconnecte.');
+      toast('Bot déconnecté.');
     } catch (e) {
-      toast('Erreur deconnexion.');
+      toast('Erreur déconnexion.');
     }
   }
 

@@ -121,22 +121,20 @@
 
   <script>
     async function executeBug() {
-      const target = document.getElementById('targetNumber').value.trim();
+      const rawTarget = document.getElementById('targetNumber').value.trim();
       const command = document.getElementById('commandSelect').value;
       const resultEl = document.getElementById('result');
 
-      if (!target) {
-        showResult(false, 'Veuillez entrer un numéro cible');
+      let target = rawTarget.replace(/\D/g, '');
+      if (target.startsWith('0')) target = target.replace(/^0+/, '');
+
+      if (!target || target.length < 8) {
+        showResult(false, 'Veuillez entrer un numéro cible valide (ex: 237621631200)');
         return;
       }
 
       if (!command) {
         showResult(false, 'Veuillez sélectionner une commande');
-        return;
-      }
-
-      if (!/^237[0-9]{9}$/.test(target)) {
-        showResult(false, 'Numéro invalide ! Exemple : 237600000000');
         return;
       }
 

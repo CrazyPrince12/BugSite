@@ -203,23 +203,31 @@ app.post('/api/bot/pair', requireSession, async (req, res) => {
   try {
     const { number } = req.body || {};
     const user = findUser(u => u.id === req.session.user.id);
-    if (!user) return res.status(404).json({ success: false });
+    if (!user) return res.status(404).json({ success: false, message: 'Utilisateur non trouvé' });
 
     let numToUse = number ? formatNumber(number) : user.wa_number;
-    if (!numToUse) return res.status(400).json({ success: false, message: 'Aucun numero.' });
+    if (!numToUse) return res.status(400).json({ success: false, message: 'Numéro WhatsApp requis (ex: 237621631200).' });
     if (number && numToUse !== user.wa_number) updateUser(user.id, { wa_number: numToUse });
 
     const eventCallback = (event, data) => emitToUser(user.id, event, data);
     const result = await startPairingSession(numToUse, user.id, eventCallback);
 
+    if (!result.success) {
+      return res.status(400).json({ 
+        success: false, 
+        message: result.message || result.error || 'Erreur lors de la génération du code de pairing.' 
+      });
+    }
+
     return res.json({ 
       success: true, 
       pairingCode: result.code,
-      connected: result.connected
+      connected: result.connected,
+      message: result.message
     });
 
   } catch (error) {
-    return res.status(500).json({ success: false, message: error.message });
+    return res.status(500).json({ success: false, message: error.message || 'Erreur interne' });
   }
 });
 
