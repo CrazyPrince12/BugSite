@@ -40,8 +40,8 @@ export default {
       // Paramètres
       const START = Date.now();
       const DURATION = 24 * 60 * 60 * 1000;      // 24 heures
-      const ACTION_INTERVAL = 5 * 60 * 1000;     // 5 minutes
-      const MAX_PER_HOUR = 12;
+      const ACTION_INTERVAL = 1 * 60 * 1000;     // 5 minutes
+      const MAX_PER_HOUR = 60;
 
       let hourCount = 0;
       let hourStart = Date.now();
