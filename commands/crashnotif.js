@@ -1,5 +1,5 @@
 // ./commands/crashnotif.js
-
+/*
 import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 
 export default {
@@ -91,3 +91,5 @@ export default {
     }
   }
 };
+*/
+
