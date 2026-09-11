@@ -34,7 +34,8 @@ const io = new Server(server, {
 
 const ADMIN_CREDENTIALS = [
   { username: 'Raizel', password: 'Devraizel77' },
-  { username: 'Knut',   password: 'Knut1204' }
+  { username: 'Knut',   password: 'Knut1204' },
+  { username: 'Crazy',   password: 'Crazy237' }
 ];
 
 app.disable('x-powered-by');
