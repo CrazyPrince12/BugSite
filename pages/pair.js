@@ -92,6 +92,7 @@
       border-radius: 50%;
       background: var(--text-3);
     }
+    .status-dot .dot.wait { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
     .status-dot .dot.on {
       background: var(--green);
       box-shadow: 0 0 8px var(--green);
@@ -505,6 +506,10 @@
   async function checkStatus() {
     try {
       const res = await fetch('/api/bot/status');
+
+      // Session du site expiree -> retour au login
+      if (res.status === 401) { window.location.href = '/login'; return false; }
+
       const data = await res.json();
 
       if (data.connected) {
@@ -514,6 +519,12 @@
         codeSection.classList.add('hidden');
         connectedSection.classList.remove('hidden');
         return true;
+      } else if (data.reconnecting || data.connecting) {
+        statusDot.className = 'dot wait';
+        statusText.textContent = data.retryInSeconds
+          ? 'Reconnexion ' + data.retryInSeconds + 's'
+          : 'Reconnexion...';
+        return false;
       } else {
         statusDot.className = 'dot';
         statusText.textContent = 'Off';
