@@ -92,6 +92,7 @@
     }
     .dot.on { background: #22c55e; box-shadow: 0 0 10px #22c55e; }
     .dot.off { background: #ef4444; box-shadow: 0 0 6px #ef4444; }
+    .dot.wait { background: #f59e0b; box-shadow: 0 0 8px #f59e0b; }
     .icon { font-size: 18px; font-weight: 900; }
   </style>
 </head>
@@ -125,13 +126,25 @@
     async function checkStatus() {
       try {
         const res = await fetch('/api/bot/status');
+
+        // Session du site expiree -> on repart sur le login
+        if (res.status === 401) { window.location.href = '/login'; return; }
+
         const data = await res.json();
-        
+
         if (data.connected) {
           statusDot.className = 'dot on';
           statusText.textContent = 'Bot connecte';
           btnBug.classList.remove('locked');
           btnBug.href = '/buglist';
+        } else if (data.reconnecting || data.connecting) {
+          // Session WhatsApp enregistree : le serveur reessaie tout seul
+          statusDot.className = 'dot wait';
+          statusText.textContent = data.retryInSeconds
+            ? `Reconnexion dans ${data.retryInSeconds}s`
+            : 'Reconnexion en cours';
+          btnBug.classList.add('locked');
+          btnBug.removeAttribute('href');
         } else {
           statusDot.className = 'dot off';
           statusText.textContent = 'Bot deconnecte';
