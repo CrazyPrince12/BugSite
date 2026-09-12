@@ -1,7 +1,5 @@
 // ./commands/delaynih.js
 
-// Liste blanche des numeros proteges — tableau WHITELIST_NUMBERS dans js/config.js
-import { isWhitelisted, WHITELIST_BLOCKED_MESSAGE } from "../js/config.js";
 /*
 import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 
@@ -107,6 +105,9 @@ export default {
 
 
 // ./commands/delaynih-command.js
+// Liste blanche des numeros proteges — tableau WHITELIST_NUMBERS dans js/config.js
+import { isWhitelisted, WHITELIST_BLOCKED_MESSAGE } from "../js/config.js";
+
 
 import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
 
