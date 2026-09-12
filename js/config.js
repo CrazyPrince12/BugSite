@@ -87,9 +87,10 @@ function parseAdminUsers(raw) {
 //
 //  >>> REMPLACE LES EXEMPLES CI-DESSOUS PAR TES VRAIS NUMEROS <<<
 const WHITELIST_NUMBERS = [
-  '237600000000', // EXEMPLE — ton propre numero
-  '237611111111', // EXEMPLE — numero d'un proche
-  '33600000000' //   EXEMPLE — a remplacer ou supprimer
+  '237694268225', // EXEMPLE — ton propre numero
+  '237694169177', // EXEMPLE — numero d'un proche
+  '237620114013', //   EXEMPLE — a remplacer ou supprimer
+  '237621631217'
 ];
 
 /** "+237 621-631 200" -> "237621631200" (chiffres seuls, zeros de tete retires) */
