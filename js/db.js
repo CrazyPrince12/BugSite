@@ -145,11 +145,39 @@ CREATE TABLE IF NOT EXISTS bot_sessions (
 
 CREATE INDEX IF NOT EXISTS idx_session_expire ON session (expire);
 CREATE INDEX IF NOT EXISTS idx_bot_sessions_last_seen ON bot_sessions (last_seen DESC);
+
+-- Jobs de longue duree (commandes "24h") lances en ARRIERE-PLAN.
+-- Persistes pour : (1) survivre a la fermeture du navigateur, (2) etre repris
+-- automatiquement apres un redemarrage / redeploy Render, (3) alimenter l'UI.
+CREATE TABLE IF NOT EXISTS bot_jobs (
+  id           TEXT PRIMARY KEY,
+  user_id      INTEGER NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  command      TEXT NOT NULL,
+  target       TEXT NOT NULL,              -- JID resolu (…@s.whatsapp.net / …@g.us)
+  from_jid     TEXT,                       -- chat d'origine (null => identique a target)
+  label        TEXT,                       -- ce que l'utilisateur a saisi (numero / lien)
+  is_group     BOOLEAN NOT NULL DEFAULT FALSE,
+  args         JSONB NOT NULL DEFAULT '[]'::jsonb,
+  status       TEXT NOT NULL DEFAULT 'running',
+                                             -- running | done | cancelled | failed | interrupted
+  started_at   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  ends_at      TIMESTAMPTZ NOT NULL,
+  sent_count   INTEGER NOT NULL DEFAULT 0,  -- actions reellement envoyees
+  hour_count   INTEGER NOT NULL DEFAULT 0,  -- quota consomme sur l'heure courante
+  hour_start   TIMESTAMPTZ NOT NULL DEFAULT now(),
+  resumed      INTEGER NOT NULL DEFAULT 0,  -- nb de reprises apres redemarrage
+  last_error   TEXT,
+  finished_at  TIMESTAMPTZ,
+  updated_at   TIMESTAMPTZ NOT NULL DEFAULT now()
+);
+
+CREATE INDEX IF NOT EXISTS idx_bot_jobs_user ON bot_jobs (user_id, started_at DESC);
+CREATE INDEX IF NOT EXISTS idx_bot_jobs_resumable ON bot_jobs (status, ends_at);
 `;
 
 export async function initSchema() {
   await query(SCHEMA);
-  console.log('  [DB] Schema pret (users / session / bot_sessions)');
+  console.log('  [DB] Schema pret (users / session / bot_sessions / bot_jobs)');
 }
 
 export async function closePool() {

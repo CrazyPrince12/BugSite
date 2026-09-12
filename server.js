@@ -19,7 +19,13 @@ import { Server } from 'socket.io';
 import { fileURLToPath } from 'url';
 
 // Doit etre importe en premier : charge les variables d'environnement
-import { CONFIG, checkConfig } from './js/config.js';
+import {
+  CONFIG,
+  checkConfig,
+  isWhitelisted,
+  findWhitelistMatch,
+  WHITELIST_BLOCKED_MESSAGE
+} from './js/config.js';
 
 import { getPool, closePool } from './js/db.js';
 import {
@@ -41,8 +47,22 @@ import {
   restoreAllBots,
   flushAllBots,
   setShuttingDown,
-  countBots
+  countBots,
+  getBotHandle,
+  getCommandByName
 } from './js/pair.js';
+
+import {
+  initJobs,
+  cancelJob,
+  getJobsForUser,
+  getJobView,
+  getActiveJobForTarget,
+  resumeAllJobs,
+  flushJobs,
+  setJobsShuttingDown,
+  countRunningJobs
+} from './js/jobs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -175,9 +195,37 @@ app.get(['/health', '/ping'], (req, res) => {
   res.status(200).json({
     ok: true,
     uptime: Math.round(process.uptime()),
-    bots: countBots()
+    bots: countBots(),
+    jobs: { running: countRunningJobs() }
   });
 });
+
+// ============================================================
+//  KEEP-ALIVE INTERNE
+// ============================================================
+/**
+ * Un job dure 24h : il faut que le process Node RESTE VIVANT. Render Free
+ * endort l'instance apres ~15 min sans trafic HTTP, ce qui tuerait le job
+ * (il serait repris au reveil, mais avec un trou). On se ping donc nous-memes.
+ * Utilise PUBLIC_URL ou RENDER_EXTERNAL_URL (fourni automatiquement par Render).
+ */
+function startInternalKeepAlive() {
+  if (!CONFIG.KEEP_ALIVE_MS || !CONFIG.PUBLIC_URL) return null;
+
+  const url = `${CONFIG.PUBLIC_URL}/health`;
+  const timer = setInterval(async () => {
+    try {
+      const res = await fetch(url, { signal: AbortSignal.timeout(15_000) });
+      if (!res.ok) console.warn(`  [KEEP-ALIVE] reponse ${res.status} sur ${url}`);
+    } catch (err) {
+      console.warn(`  [KEEP-ALIVE] echec : ${err?.message || err}`);
+    }
+  }, CONFIG.KEEP_ALIVE_MS);
+  timer.unref?.();
+
+  console.log(`  -> keep-alive interne toutes les ${Math.round(CONFIG.KEEP_ALIVE_MS / 60000)} min`);
+  return timer;
+}
 
 // ============================================================
 //  API - AUTH
@@ -364,33 +412,148 @@ app.post('/api/bot/stop', requireSession, async (req, res) => {
   }
 });
 
+/**
+ * EXECUTION D'UNE COMMANDE
+ *
+ * AVANT : `await executeWebCommand(...)` attendait la FIN de la commande.
+ *         Une commande "24h" ne repondait donc qu'apres 24h : le navigateur
+ *         restait fige sur "Execution en cours..." puis le proxy coupait la
+ *         connexion (message rouge) pendant que la boucle tournait encore.
+ *
+ * MAINTENANT : les commandes longues sont confiees au moteur de jobs et cette
+ *         route repond en ~100 ms (HTTP 202 + jobId). L'utilisateur peut fermer
+ *         l'onglet / quitter le site : le job continue dans le process Node,
+ *         et reprend tout seul apres un redemarrage du serveur.
+ */
 app.post('/api/bot/command', requireSession, async (req, res) => {
   try {
     const { command, target, groupLink, args } = req.body || {};
     const userId = req.session.user.id;
     const user = await getUserById(userId);
+    const argList = Array.isArray(args) ? args : [];
 
     if (!user?.wa_number) {
-      return res.status(400).json({ success: false, message: 'Aucun bot lie.' });
+      return res
+        .status(400)
+        .json({ success: false, message: 'Aucun bot lié. Jumele ton numéro sur la page Pair.' });
     }
     if (!command) {
       return res.status(400).json({ success: false, message: 'Commande requise.' });
     }
 
-    if (groupLink) {
-      const result = await executeWebCommand(userId, command, groupLink, args || []);
-      return res.json({ success: true, result });
+    const rawTarget = groupLink || target;
+    if (!rawTarget) {
+      return res.status(400).json({ success: false, message: 'Cible ou groupe requis.' });
     }
 
-    if (target) {
-      const targetJid = target.includes('@') ? target : `${formatNumber(target)}@s.whatsapp.net`;
-      const result = await executeWebCommand(userId, command, targetJid, args || []);
-      return res.json({ success: true, result });
+    // --------------------------------------------------------
+    //  LISTE BLANCHE (couche 1) — js/config.js > WHITELIST_NUMBERS
+    //  Controle AVANT tout : si la cible est protegee, on ne lance rien,
+    //  on ne resout rien, on n'ecrit rien en base.
+    // --------------------------------------------------------
+    for (const candidate of [rawTarget, ...argList]) {
+      if (isWhitelisted(candidate)) {
+        return res.status(403).json({
+          success: false,
+          blocked: true,
+          code: 'WHITELISTED',
+          number: findWhitelistMatch(candidate),
+          message: WHITELIST_BLOCKED_MESSAGE
+        });
+      }
     }
 
-    return res.status(400).json({ success: false, message: 'Cible ou groupe requis.' });
+    const targetOrGroup = groupLink
+      ? groupLink
+      : String(target).includes('@')
+        ? target
+        : `${formatNumber(target)}@s.whatsapp.net`;
+
+    const result = await executeWebCommand(userId, command, targetOrGroup, argList);
+
+    // Commande longue -> job en arriere-plan : 202 Accepted, reponse immediate.
+    if (result?.queued) {
+      return res.status(202).json({
+        success: true,
+        queued: true,
+        background: true,
+        alreadyRunning: !!result.alreadyRunning,
+        jobId: result.jobId,
+        job: result.job,
+        message: result.message
+      });
+    }
+
+    // Commande courte (ping...) -> resultat immediat.
+    return res.json({ success: true, message: result?.message, result });
   } catch (err) {
-    return res.status(400).json({ success: false, message: err?.message });
+    if (err?.blocked || err?.code === 'WHITELISTED') {
+      return res.status(403).json({
+        success: false,
+        blocked: true,
+        code: 'WHITELISTED',
+        number: err?.number || null,
+        message: err?.message || WHITELIST_BLOCKED_MESSAGE
+      });
+    }
+    const status = Number(err?.status) || 400;
+    return res.status(status).json({ success: false, message: err?.message || 'Erreur interne' });
+  }
+});
+
+// ============================================================
+//  API - JOBS (suivi des executions en arriere-plan)
+// ============================================================
+/** Liste des jobs de l'utilisateur connecte : c'est ce qui permet a la page de
+ *  retrouver son job EN COURS apres avoir ferme puis rouvert le navigateur. */
+app.get('/api/jobs', requireSession, async (req, res) => {
+  try {
+    const limit = Math.min(50, Math.max(1, parseInt(req.query.limit, 10) || 15));
+    const jobs = await getJobsForUser(req.session.user.id, limit);
+    return res.json({ success: true, jobs, running: countRunningJobs() });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err?.message });
+  }
+});
+
+/** Etat d'un job precis (+ son eventuel jumeau deja actif sur la meme cible). */
+app.get('/api/jobs/:id', requireSession, async (req, res) => {
+  try {
+    const job = await getJobView(req.params.id, req.session.user.id);
+    if (!job) return res.status(404).json({ success: false, message: 'Job introuvable' });
+    return res.json({ success: true, job });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err?.message });
+  }
+});
+
+/** Bouton STOP : arrete la boucle a sa prochaine iteration (sleep interrompu). */
+app.post('/api/jobs/:id/stop', requireSession, async (req, res) => {
+  try {
+    const result = await cancelJob(req.params.id, req.session.user.id);
+    if (!result?.success) {
+      return res.status(404).json({ success: false, message: result?.message || 'Job introuvable' });
+    }
+    return res.json({
+      success: true,
+      job: result.job,
+      message: result.alreadyFinished ? 'Ce job était déjà terminé.' : 'Job arrêté.'
+    });
+  } catch (err) {
+    const status = Number(err?.status) || 500;
+    return res.status(status).json({ success: false, message: err?.message });
+  }
+});
+
+/** Job actif sur une cible donnee (anti double-lancement cote UI). */
+app.get('/api/jobs/active/:target', requireSession, async (req, res) => {
+  try {
+    const raw = req.params.target || '';
+    const target = raw.includes('@') ? raw : `${formatNumber(raw)}@s.whatsapp.net`;
+    const job = await getActiveJobForTarget(req.session.user.id, target);
+    return res.json({ success: true, job });
+  } catch (err) {
+    return res.status(500).json({ success: false, message: err?.message });
   }
 });
 
@@ -403,7 +566,14 @@ async function shutdown(signal) {
   if (closing) return;
   closing = true;
   setShuttingDown(true);
-  console.log(`\n[KNUT-BUG] ${signal} recu, sauvegarde des sessions...`);
+  setJobsShuttingDown(true); // les jobs ne sont PAS annules : ils seront repris au boot
+  console.log(`\n[KNUT-BUG] ${signal} recu, sauvegarde des sessions et des jobs...`);
+
+  try {
+    await flushJobs(); // compteurs des jobs 24h -> repris au prochain demarrage
+  } catch {
+    /* ignore */
+  }
 
   try {
     await flushAllBots();
@@ -439,6 +609,12 @@ process.on('unhandledRejection', err =>
   try {
     await initDB();
     await initBotManager({ emit: emitToUser });
+    initJobs({
+      emit: emitToUser,
+      getBot: getBotHandle, // socket "vivante" : survit aux reconnexions du bot
+      getCommand: getCommandByName
+    });
+    console.log(`  WHITELIST=${CONFIG.WHITELIST_NUMBERS.length} numero(s) protege(s)`);
   } catch (err) {
     console.error('[KNUT-BUG] Demarrage impossible:', err?.message || err);
     process.exit(1);
@@ -447,12 +623,17 @@ process.on('unhandledRejection', err =>
   server.listen(PORT, '0.0.0.0', () => {
     console.log(`  -> http://localhost:${PORT}`);
     console.log('========================================');
-    console.log(`  MAX_BOTS=${CONFIG.MAX_BOTS} | AUTO_RESTORE=${CONFIG.AUTO_RESTORE_BOTS}`);
+    console.log(
+      `  MAX_BOTS=${CONFIG.MAX_BOTS} | AUTO_RESTORE=${CONFIG.AUTO_RESTORE_BOTS} | AUTO_RESUME_JOBS=${CONFIG.AUTO_RESUME_JOBS}`
+    );
     console.log('========================================');
 
-    // Les bots se reconnectent apres l'ecoute du port : /health repond tout de suite
-    restoreAllBots().catch(err =>
-      console.error('[KNUT-BUG] Restauration:', err?.message || err)
-    );
+    startInternalKeepAlive();
+
+    // Les bots se reconnectent apres l'ecoute du port : /health repond tout de suite.
+    // Puis les jobs 24h interrompus par le redemarrage reprennent sur le temps restant.
+    restoreAllBots()
+      .then(() => resumeAllJobs())
+      .catch(err => console.error('[KNUT-BUG] Restauration:', err?.message || err));
   });
 })();

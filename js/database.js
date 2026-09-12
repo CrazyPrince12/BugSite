@@ -150,3 +150,169 @@ export async function initDB() {
   await seedAdmins();
   console.log('  [DB] Utilisateurs initialises');
 }
+
+// ============================================================
+//  JOBS D'ARRIERE-PLAN (table bot_jobs)
+// ============================================================
+/**
+ * Une commande "24h" n'est plus attendue par la requete HTTP : elle devient un
+ * job persiste ici. Le navigateur peut etre ferme, le serveur peut redemarrer :
+ * la ligne `status='running'` + `ends_at` permet de reprendre exactement ou
+ * l'execution s'etait arretee.
+ */
+
+const JOB_COLUMNS = `id, user_id, command, target, from_jid, label, is_group, args, status,
+                     started_at, ends_at, sent_count, hour_count, hour_start,
+                     resumed, last_error, finished_at, updated_at`;
+
+function mapJob(row) {
+  if (!row) return null;
+  return {
+    id: row.id,
+    userId: row.user_id,
+    command: row.command,
+    target: row.target,
+    fromJid: row.from_jid || row.target,
+    label: row.label,
+    isGroup: !!row.is_group,
+    args: Array.isArray(row.args) ? row.args : [],
+    status: row.status,
+    startedAt: new Date(row.started_at).getTime(),
+    endsAt: new Date(row.ends_at).getTime(),
+    sentCount: row.sent_count || 0,
+    hourCount: row.hour_count || 0,
+    hourStart: new Date(row.hour_start).getTime(),
+    resumed: row.resumed || 0,
+    lastError: row.last_error || null,
+    finishedAt: row.finished_at ? new Date(row.finished_at).getTime() : null,
+    updatedAt: new Date(row.updated_at).getTime()
+  };
+}
+
+export async function createJobRow(job) {
+  const { rows } = await query(
+    `INSERT INTO bot_jobs
+       (id, user_id, command, target, from_jid, label, is_group, args, status,
+        started_at, ends_at, sent_count, hour_count, hour_start, resumed)
+     VALUES ($1,$2,$3,$4,$5,$6,$7,$8::jsonb,'running',
+             to_timestamp($9/1000.0), to_timestamp($10/1000.0), $11, $12, to_timestamp($13/1000.0), $14)
+     RETURNING ${JOB_COLUMNS}`,
+    [
+      job.id,
+      Number(job.userId),
+      job.command,
+      job.target,
+      job.fromJid || job.target,
+      job.label || null,
+      !!job.isGroup,
+      JSON.stringify(job.args || []),
+      job.startedAt,
+      job.endsAt,
+      job.sentCount || 0,
+      job.hourCount || 0,
+      job.hourStart || job.startedAt,
+      job.resumed || 0
+    ]
+  );
+  return mapJob(rows[0]);
+}
+
+/** Mise a jour legere (1 UPDATE toutes les ~5 min : maintient aussi Neon eveille). */
+export async function updateJobProgress(id, { sentCount, hourCount, hourStart } = {}) {
+  const { rows } = await query(
+    `UPDATE bot_jobs
+        SET sent_count = $2,
+            hour_count = $3,
+            hour_start = to_timestamp($4/1000.0),
+            updated_at = now()
+      WHERE id = $1
+     RETURNING ${JOB_COLUMNS}`,
+    [id, sentCount || 0, hourCount || 0, hourStart || Date.now()]
+  );
+  return mapJob(rows[0]);
+}
+
+export async function setJobStatus(id, status, { lastError = null, finished = true } = {}) {
+  const { rows } = await query(
+    `UPDATE bot_jobs
+        SET status = $2,
+            last_error = $3,
+            finished_at = CASE WHEN $4 THEN now() ELSE finished_at END,
+            updated_at = now()
+      WHERE id = $1
+     RETURNING ${JOB_COLUMNS}`,
+    [id, status, lastError, finished]
+  );
+  return mapJob(rows[0]);
+}
+
+export async function bumpJobResume(id) {
+  const { rows } = await query(
+    `UPDATE bot_jobs SET resumed = resumed + 1, updated_at = now() WHERE id = $1 RETURNING ${JOB_COLUMNS}`,
+    [id]
+  );
+  return mapJob(rows[0]);
+}
+
+export async function getJobRow(id) {
+  const { rows } = await query(`SELECT ${JOB_COLUMNS} FROM bot_jobs WHERE id = $1`, [id]);
+  return mapJob(rows[0]);
+}
+
+export async function listJobRows(userId, limit = 15) {
+  const { rows } = await query(
+    `SELECT ${JOB_COLUMNS} FROM bot_jobs
+      WHERE user_id = $1
+      ORDER BY (status = 'running') DESC, started_at DESC
+      LIMIT $2`,
+    [Number(userId), limit]
+  );
+  return rows.map(mapJob);
+}
+
+export async function findActiveJobRow(userId, target) {
+  const { rows } = await query(
+    `SELECT ${JOB_COLUMNS} FROM bot_jobs
+      WHERE user_id = $1 AND target = $2 AND status = 'running' AND ends_at > now()
+      ORDER BY started_at DESC
+      LIMIT 1`,
+    [Number(userId), target]
+  );
+  return mapJob(rows[0]);
+}
+
+export async function countActiveJobs(userId) {
+  const { rows } = await query(
+    `SELECT count(*)::int AS n FROM bot_jobs
+      WHERE user_id = $1 AND status = 'running' AND ends_at > now()`,
+    [Number(userId)]
+  );
+  return rows[0]?.n || 0;
+}
+
+/** Jobs a reprendre au demarrage : encore 'running' et pas arrives a terme. */
+export async function getResumableJobRows(limit = 50) {
+  const { rows } = await query(
+    `SELECT ${JOB_COLUMNS} FROM bot_jobs
+      WHERE status = 'running' AND ends_at > now()
+      ORDER BY started_at ASC
+      LIMIT $1`,
+    [limit]
+  );
+  return rows.map(mapJob);
+}
+
+/** Jobs 'running' dont la duree est ecoulee mais jamais termines (process tue). */
+export async function expireStaleJobRows() {
+  const { rows } = await query(
+    `UPDATE bot_jobs
+        SET status = 'interrupted',
+            last_error = COALESCE(last_error, 'Duree ecoulee pendant un arret du serveur'),
+            finished_at = now(),
+            updated_at = now()
+      WHERE status = 'running' AND ends_at <= now()
+     RETURNING id`
+  );
+  return rows.length;
+}
+

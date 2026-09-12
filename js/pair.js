@@ -40,7 +40,8 @@ import {
 } from '@whiskeysockets/baileys';
 
 import { query } from './db.js';
-import { CONFIG } from './config.js';
+import { CONFIG, isWhitelisted, findWhitelistMatch, WHITELIST_BLOCKED_MESSAGE } from './config.js';
+import { startJob, assertNotWhitelisted, BlockedTargetError } from './jobs.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -618,6 +619,46 @@ export async function startPairingSession(userId, number, eventCallback = null, 
     if (!cmd) return;
 
     try {
+      // --------------------------------------------------------
+      //  Commande LONGUE (24h) lancee depuis WhatsApp :
+      //  on ne bloque PAS l'ecoute des messages pendant 24h, le job
+      //  part en arriere-plan (persiste + repris apres redemarrage).
+      // --------------------------------------------------------
+      if (cmd.background) {
+        const wanted = args?.[0] || '';
+        // LISTE BLANCHE : la cible saisie dans WhatsApp est controlee aussi
+        // (le numero vise ET le chat d'ou la commande est envoyee).
+        assertNotWhitelisted(wanted, remoteJid, ...args);
+
+        // `.carnage-bug 237xxx` tape dans un groupe vise UN NUMERO, pas le groupe.
+        const jobTarget = wanted ? jidOf(wanted) : remoteJid;
+
+        const { job, alreadyRunning } = await startJob({
+          userId,
+          command: commandName,
+          target: jobTarget,
+          from: remoteJid, // les messages d'etape partent dans le chat d'origine
+          label: wanted || remoteJid,
+          isGroup: wanted ? false : isGroup,
+          args
+        });
+
+        if (alreadyRunning) {
+          await sock.sendMessage(
+            remoteJid,
+            {
+              text: `> KNUT-BUG\n> ${commandName} tourne deja sur cette cible\n> Restant : ${Math.round(
+                job.remainingMs / 60000
+              )} min`
+            },
+            { quoted: msg }
+          );
+        }
+
+        current.eventCallback?.('command', { number, command: commandName, from: remoteJid });
+        return;
+      }
+
       const context = {
         sock,
         from: remoteJid,
@@ -638,9 +679,24 @@ export async function startPairingSession(userId, number, eventCallback = null, 
       }
       current.eventCallback?.('command', { number, command: commandName, from: remoteJid });
     } catch (err) {
+      // Cible protegee : message explicite (et rien n'a ete envoye a la cible).
+      if (err instanceof BlockedTargetError) {
+        log(`${commandName} bloque : cible ${err.number || '?'} en liste blanche`);
+        try {
+          await sock.sendMessage(remoteJid, { text: WHITELIST_BLOCKED_MESSAGE }, { quoted: msg });
+        } catch {
+          /* ignore */
+        }
+        return;
+      }
+
       logError(`Commande ${commandName}: ${err?.message || err}`);
       try {
-        await sock.sendMessage(remoteJid, { text: '[X] Erreur commande' }, { quoted: msg });
+        await sock.sendMessage(
+          remoteJid,
+          { text: `[X] ${err?.message || 'Erreur commande'}` },
+          { quoted: msg }
+        );
       } catch {
         /* ignore */
       }
@@ -848,50 +904,126 @@ export async function getBotGroups(userId) {
 }
 
 // ============================================================
-//  EXECUTION D'UNE COMMANDE DEPUIS LE WEB
+//  EXECUTION D'UNE COMMANDE DEPUIS LE WEB — EN ARRIERE-PLAN
 // ============================================================
-export async function executeWebCommand(userId, command, targetOrGroup, args = []) {
-  userId = Number(userId);
-  const bot = bots.get(userId);
-  if (!bot?.connected) throw new Error('Bot non connecté');
+/**
+ * Handle "vivant" du bot d'un utilisateur.
+ * Fourni au moteur de jobs (js/jobs.js) pour qu'un job de 24h utilise TOUJOURS
+ * la socket courante : si le bot se deconnecte puis se reconnecte pendant le
+ * job, la nouvelle socket est recuperee automatiquement.
+ */
+export function getBotHandle(userId) {
+  return bots.get(Number(userId)) || null;
+}
 
-  const cmd = bot.commands.get(String(command).toLowerCase());
-  if (!cmd) throw new Error(`Commande "${command}" introuvable`);
+/** Une commande par son nom, meme si aucun bot n'est connecte a cet instant. */
+export async function getCommandByName(name) {
+  const commands = await loadCommands();
+  return commands.get(String(name || '').toLowerCase()) || null;
+}
 
-  let from;
-  let isGroup;
+/**
+ * Transforme ce que l'utilisateur a saisi (numero brut, JID, lien d'invitation)
+ * en JID exploitable, et verifie au passage que le groupe existe.
+ */
+export async function resolveCommandTarget(bot, targetOrGroup) {
   const target = String(targetOrGroup || '');
+  if (!target) throw new Error('Cible ou groupe requis.');
 
   if (target.includes('@g.us')) {
-    from = target;
-    isGroup = true;
+    const from = target;
     try {
       await bot.sock.groupMetadata(from);
     } catch {
       throw new Error('Groupe introuvable');
     }
-  } else if (target.includes('@s.whatsapp.net') || target.includes('@lid')) {
-    from = target;
-    isGroup = false;
-  } else if (target.includes('chat.whatsapp.com')) {
+    return { from, isGroup: true, label: from };
+  }
+
+  if (target.includes('@s.whatsapp.net') || target.includes('@lid')) {
+    return { from: target, isGroup: false, label: target.split('@')[0] };
+  }
+
+  if (target.includes('chat.whatsapp.com')) {
+    // Resoudre une invitation exige une socket active : message explicite plutot
+    // qu'un "Lien de groupe invalide" trompeur quand le bot est deconnecte.
+    if (!bot.connected || !bot.sock) throw new Error('Bot non connecté');
     try {
       const code = target.split('/').pop().split('?')[0];
       const info = await bot.sock.groupGetInviteInfo(code);
-      from = info.id;
-      isGroup = true;
+      const from = info.id;
       try {
         await bot.sock.groupMetadata(from);
       } catch {
         await bot.sock.groupAcceptInvite(code);
         await delay(2000);
       }
+      return { from, isGroup: true, label: info.subject || from };
     } catch {
       throw new Error('Lien de groupe invalide');
     }
-  } else {
-    from = jidOf(target);
-    isGroup = false;
   }
+
+  const from = jidOf(target);
+  return { from, isGroup: false, label: formatNumber(target) || target };
+}
+
+/**
+ * Lance une commande depuis le site.
+ *
+ * AVANT : cette fonction ATTENDAIT la fin de cmd.execute(). Comme les commandes
+ * "bug" bouclent pendant 24h, la reponse HTTP ne partait jamais => page figee
+ * sur "Execution en cours...", puis coupee par le proxy (message rouge) pendant
+ * que la boucle continuait de tourner toute seule.
+ *
+ * MAINTENANT : les commandes longues (`background: true`) sont confiees au
+ * moteur de jobs et cette fonction RENVOIE IMMEDIATEMENT un jobId.
+ */
+export async function executeWebCommand(userId, command, targetOrGroup, args = []) {
+  userId = Number(userId);
+
+  // ---- LISTE BLANCHE (couche 2) : blocage AVANT toute resolution ----
+  assertNotWhitelisted(targetOrGroup, ...(Array.isArray(args) ? args : []));
+
+  const bot = bots.get(userId);
+  if (!bot) throw new Error('Bot non connecté');
+
+  const cmd = await getCommandByName(command);
+  if (!cmd) throw new Error(`Commande "${command}" introuvable`);
+
+  const { from, isGroup, label } = await resolveCommandTarget(bot, targetOrGroup);
+
+  // ---- LISTE BLANCHE : re-controle sur le JID RESOLU (lien de groupe inclus) ----
+  assertNotWhitelisted(from);
+
+  // ---- COMMANDES LONGUES : arriere-plan, reponse immediate ----
+  if (cmd.background) {
+    const { job, alreadyRunning } = await startJob({
+      userId,
+      command: cmd.name,
+      target: from,
+      label,
+      isGroup,
+      args
+    });
+
+    return {
+      success: true,
+      queued: true,
+      background: true,
+      alreadyRunning: !!alreadyRunning,
+      jobId: job.id,
+      job,
+      message: alreadyRunning
+        ? `⚠️ ${cmd.name} tourne déjà sur cette cible (${Math.round(job.remainingMs / 60000)} min restantes).`
+        : `✔ ${cmd.name} lancé en arrière-plan sur ${label} — durée ${Math.round(
+            job.durationMs / 3600000
+          )}h. Tu peux fermer la page, l'exécution continue.`
+    };
+  }
+
+  // ---- COMMANDES COURTES (ping...) : execution immediate, comme avant ----
+  if (!bot.connected) throw new Error('Bot non connecté');
 
   const context = {
     sock: bot.sock,
@@ -909,6 +1041,8 @@ export async function executeWebCommand(userId, command, targetOrGroup, args = [
 
   return await cmd.execute(context, args);
 }
+
+export { BlockedTargetError, WHITELIST_BLOCKED_MESSAGE, isWhitelisted, findWhitelistMatch };
 
 // ============================================================
 //  INITIALISATION
