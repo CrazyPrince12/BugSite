@@ -2,3 +2,4 @@ node_modules/
 sessions/
 .env
 users.json
+.test-harness/

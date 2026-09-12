@@ -114,16 +114,66 @@
       <option value="carnage-bug">Caranage-Bug</option>
     </select>
 
-    <button class="btn btn-execute" onclick="executeBug()">[>>] EXECUTER</button>
+    <button class="btn btn-execute" id="btnExecute" onclick="executeBug()">[>>] EXECUTER</button>
     <div class="result hidden" id="result"></div>
+
+    <!-- ============================================================== -->
+    <!--  SUIVI DES EXECUTIONS EN ARRIERE-PLAN                           -->
+    <!--  Le job tourne COTE SERVEUR : cette carte reste a jour meme si   -->
+    <!--  tu fermes l'onglet, et se reaffiche toute seule a ton retour.   -->
+    <!-- ============================================================== -->
+    <div id="jobBoard"></div>
+
     <a href="/buglist" class="btn btn-back">[<] Retour</a>
   </div>
 
+  <script src="/js/job-ui.js"></script>
   <script>
+    /* ==================================================================
+     *  AVANT : `await fetch('/api/bot/command')` attendait la FIN de la
+     *  commande. Comme carnage-bug / crashnotif / delaynih bouclent
+     *  pendant 24h, la reponse n'arrivait JAMAIS :
+     *    - la page restait figee sur "Execution en cours... Veuillez patienter"
+     *    - le proxy (Render / Cloudflare) coupait la connexion au bout de
+     *      ~30-100s => message ROUGE "Erreur de connexion au serveur"
+     *    - ...pendant que la boucle continuait de tourner sur le serveur,
+     *      sans plus aucun retour pour l'utilisateur.
+     *
+     *  MAINTENANT : le serveur lance un JOB en arriere-plan et repond en
+     *  ~100 ms (HTTP 202 + jobId). Le navigateur n'attend plus rien :
+     *    - confirmation verte IMMEDIATE
+     *    - carte de progression en temps reel (Socket.IO + polling)
+     *    - tu peux fermer la page, quitter le site, eteindre ton telephone :
+     *      le job continue jusqu'au bout de ses 24h et se reaffiche ici
+     *    - bouton STOP pour l'arreter proprement quand tu veux
+     * ================================================================== */
+
+    const targetInput = document.getElementById('targetNumber');
+    const commandSelect = document.getElementById('commandSelect');
+    const btnExecute = document.getElementById('btnExecute');
+    const BTN_LABEL = '[>>] EXECUTER';
+
+    JobUI.mount('#jobBoard');
+
+    let hideTimer = null;
+    function showResult(ok, msg, sticky) {
+      const el = document.getElementById('result');
+      el.className = `result ${ok ? 'ok' : 'err'}`;
+      el.textContent = msg;
+      clearTimeout(hideTimer);
+      // Le message ne s'efface plus au bout de 5s : il reste lisible.
+      if (!sticky) hideTimer = setTimeout(() => el.classList.add('hidden'), 9000);
+    }
+
+    function setBusy(busy, label) {
+      btnExecute.disabled = busy;
+      btnExecute.style.opacity = busy ? '0.6' : '1';
+      btnExecute.textContent = busy ? (label || 'Lancement...') : BTN_LABEL;
+    }
+
     async function executeBug() {
-      const rawTarget = document.getElementById('targetNumber').value.trim();
-      const command = document.getElementById('commandSelect').value;
-      const resultEl = document.getElementById('result');
+      const rawTarget = targetInput.value.trim();
+      const command = commandSelect.value;
 
       let target = rawTarget.replace(/\D/g, '');
       if (target.startsWith('0')) target = target.replace(/^0+/, '');
@@ -132,47 +182,63 @@
         showResult(false, 'Veuillez entrer un numéro cible valide (ex: 237621631200)');
         return;
       }
-
       if (!command) {
         showResult(false, 'Veuillez sélectionner une commande');
         return;
       }
 
-      try {
-        resultEl.classList.remove('hidden');
-        resultEl.className = 'result';
-        resultEl.textContent = 'Exécution en cours... Veuillez patienter';
+      // Anti double-lancement : un job tourne deja sur cette cible.
+      const already = JobUI.activeFor(target);
+      if (already) {
+        showResult(
+          false,
+          `⚠️ ${already.command} tourne déjà sur ce numéro (${JobUI.humanDuration(already.remainingMs)} restantes). ` +
+            `Arrête-le ci-dessous avant d'en relancer un.`,
+          true
+        );
+        return;
+      }
 
-        const res = await fetch('/api/bot/command', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ 
-            command: command,      // "carnage-bug"
-            target: target,
-            args: [target]
-          })
-        });
+      setBusy(true);
+      showResult(true, '⚡ Lancement de la commande...', true);
 
-        const data = await res.json();
+      // NE BLOQUE PLUS : la reponse arrive immediatement, le job continue seul.
+      const out = await JobUI.launch({ command, target, args: [target] });
 
-        if (data.success) {
-          showResult(true, data.message || 'Carnage-Bug lancé avec succès !');
-        } else {
-          showResult(false, data.message || 'Échec de l\'exécution');
-        }
-      } catch (e) {
-        console.error(e);
-        showResult(false, 'Erreur de connexion au serveur');
+      setBusy(false);
+
+      if (out.ok && out.queued) {
+        showResult(
+          true,
+          out.message || '✔ Commande lancée en arrière-plan. Tu peux fermer la page : ' +
+            "l'exécution continue jusqu'à son terme (24h).",
+          true
+        );
+      } else if (out.blocked) {
+        // Liste blanche (js/config.js > WHITELIST_NUMBERS) : rien n'a ete envoye.
+        showResult(false, out.message, true);
+      } else {
+        showResult(false, out.message || "Échec de l'exécution", true);
       }
     }
 
-    function showResult(ok, msg) {
-      const resultEl = document.getElementById('result');
-      resultEl.className = `result ${ok ? 'ok' : 'err'}`;
-      resultEl.textContent = msg;
-      resultEl.classList.remove('hidden');
-      setTimeout(() => resultEl.classList.add('hidden'), 5000);
-    }
+    // Entree directe dans le champ = lancer la commande.
+    targetInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') executeBug();
+    });
+
+    // Au retour sur la page : si un job tourne encore, on le signale.
+    JobUI.on('change', jobs => {
+      const active = jobs.find(j => j.status === 'running');
+      if (active && document.getElementById('result').classList.contains('hidden')) {
+        showResult(
+          true,
+          `⚡ ${active.command} est toujours en cours sur ${active.label} — ` +
+            `${JobUI.humanDuration(active.remainingMs)} restantes.`,
+          true
+        );
+      }
+    });
   </script>
 </body>
 </html>

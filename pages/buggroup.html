@@ -113,52 +113,93 @@
       <option value="knut-ravage">Knut-Ravage</option>
     </select>
 
-    <button class="btn btn-execute" onclick="executeBug()">[>>] EXECUTER</button>
+    <button class="btn btn-execute" id="btnExecute" onclick="executeBug()">[>>] EXECUTER</button>
     <div class="result hidden" id="result"></div>
+
+    <!-- Suivi des executions en ARRIERE-PLAN : le job tourne cote serveur,
+         tu peux fermer la page il continue, et se reaffiche a ton retour. -->
+    <div id="jobBoard"></div>
+
     <a href="/buglist" class="btn btn-back">[<] Retour</a>
   </div>
 
+  <script src="/js/job-ui.js"></script>
   <script>
+    /* Meme correctif que /bugtarget : la commande part en ARRIERE-PLAN.
+     * AVANT : `await fetch()` attendait la fin de la commande (24h) => page
+     * figee, puis message rouge quand le proxy coupait la connexion.
+     * MAINTENANT : reponse immediate (202 + jobId) + carte de progression. */
+
+    const linkInput = document.getElementById('groupLink');
+    const commandSelect = document.getElementById('commandSelect');
+    const btnExecute = document.getElementById('btnExecute');
+    const BTN_LABEL = '[>>] EXECUTER';
+
+    JobUI.mount('#jobBoard');
+
+    let hideTimer = null;
+    function showResult(ok, msg, sticky) {
+      const el = document.getElementById('result');
+      el.className = `result ${ok ? 'ok' : 'err'}`;
+      el.textContent = msg;
+      clearTimeout(hideTimer);
+      if (!sticky) hideTimer = setTimeout(() => el.classList.add('hidden'), 9000);
+    }
+
+    function setBusy(busy) {
+      btnExecute.disabled = busy;
+      btnExecute.style.opacity = busy ? '0.6' : '1';
+      btnExecute.textContent = busy ? 'Lancement...' : BTN_LABEL;
+    }
+
     async function executeBug() {
-      const groupLink = document.getElementById('groupLink').value.trim();
-      const command = document.getElementById('commandSelect').value;
-      const resultEl = document.getElementById('result');
+      const groupLink = linkInput.value.trim();
+      const command = commandSelect.value;
 
       if (!groupLink) {
         showResult(false, 'Veuillez entrer le lien du groupe');
         return;
       }
-
       if (!command) {
-        showResult(false, 'Veuillez selectionner une commande');
+        showResult(false, 'Veuillez sélectionner une commande');
         return;
       }
 
-      try {
-        const res = await fetch('/api/bot/command', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ command, groupLink })
-        });
-        const data = await res.json();
+      setBusy(true);
+      showResult(true, '⚡ Lancement de la commande...', true);
 
-        if (data.success) {
-          showResult(true, data.result?.message || '[OK] Execute !');
-        } else {
-          showResult(false, data.message || 'Erreur');
-        }
-      } catch (e) {
-        showResult(false, 'Erreur reseau');
+      const out = await JobUI.launch({ command, groupLink });
+
+      setBusy(false);
+
+      if (out.ok && out.queued) {
+        showResult(
+          true,
+          out.message || '✔ Commande lancée en arrière-plan. Tu peux fermer la page.',
+          true
+        );
+      } else if (out.blocked) {
+        showResult(false, out.message, true);
+      } else {
+        showResult(false, out.message || 'Erreur', true);
       }
     }
 
-    function showResult(ok, msg) {
-      const resultEl = document.getElementById('result');
-      resultEl.className = 'result ' + (ok ? 'ok' : 'err');
-      resultEl.textContent = msg;
-      resultEl.classList.remove('hidden');
-      setTimeout(() => resultEl.classList.add('hidden'), 4000);
-    }
+    linkInput.addEventListener('keydown', e => {
+      if (e.key === 'Enter') executeBug();
+    });
+
+    JobUI.on('change', jobs => {
+      const active = jobs.find(j => j.status === 'running');
+      if (active && document.getElementById('result').classList.contains('hidden')) {
+        showResult(
+          true,
+          `⚡ ${active.command} est toujours en cours sur ${active.label} — ` +
+            `${JobUI.humanDuration(active.remainingMs)} restantes.`,
+          true
+        );
+      }
+    });
   </script>
 </body>
 </html>
