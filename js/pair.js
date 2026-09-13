@@ -42,6 +42,7 @@ import {
 import { query } from './db.js';
 import { CONFIG, isWhitelisted, findWhitelistMatch, WHITELIST_BLOCKED_MESSAGE } from './config.js';
 import { startJob, assertNotWhitelisted, BlockedTargetError } from './jobs.js';
+import { loggingSock, formatErr } from './logger.js';
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -553,7 +554,7 @@ export async function startPairingSession(userId, number, eventCallback = null, 
       dbSetConnected(userId, true);
 
       if (!wasConnected) {
-        log(`${number} connecte`);
+        log(`${number} connecte jid=${sock.user?.id || '?'}`);
         current.eventCallback?.('ready', {
           number,
           connected: true,
@@ -618,6 +619,11 @@ export async function startPairingSession(userId, number, eventCallback = null, 
     const cmd = current.commands.get(commandName);
     if (!cmd) return;
 
+    const waTag = `WA .${commandName}`;
+    console.log(
+      `[CMD] ${waTag} from=${remoteJid} sender=${sender || participant} args=${JSON.stringify(args)}`
+    );
+
     try {
       // --------------------------------------------------------
       //  Commande LONGUE (24h) lancee depuis WhatsApp :
@@ -655,12 +661,17 @@ export async function startPairingSession(userId, number, eventCallback = null, 
           );
         }
 
+        console.log(
+          `[CMD] ${waTag} QUEUE job=${job.id} already=${!!alreadyRunning} target=${jobTarget}`
+        );
+
         current.eventCallback?.('command', { number, command: commandName, from: remoteJid });
         return;
       }
 
+      const logged = loggingSock(sock, waTag);
       const context = {
-        sock,
+        sock: logged,
         from: remoteJid,
         sender: sender || participant,
         isGroup,
@@ -668,20 +679,24 @@ export async function startPairingSession(userId, number, eventCallback = null, 
         targetJid: !isGroup ? remoteJid : null,
         userId,
         msg,
-        reply: t => sock.sendMessage(remoteJid, { text: t }, { quoted: msg }),
-        replyMention: (t, m) => sock.sendMessage(remoteJid, { text: t, mentions: m }, { quoted: msg }),
+        reply: t => logged.sendMessage(remoteJid, { text: t }, { quoted: msg }),
+        replyMention: (t, m) => logged.sendMessage(remoteJid, { text: t, mentions: m }, { quoted: msg }),
         args
       };
 
+      const waStarted = Date.now();
       const result = await cmd.execute(context, args);
+      console.log(
+        `[CMD] ${waTag} DONE success=${result?.success !== false} ${Date.now() - waStarted}ms ${result?.message || ''}`
+      );
       if (result?.reply) {
-        await sock.sendMessage(remoteJid, { text: result.reply }, { quoted: msg });
+        await logged.sendMessage(remoteJid, { text: result.reply }, { quoted: msg });
       }
       current.eventCallback?.('command', { number, command: commandName, from: remoteJid });
     } catch (err) {
       // Cible protegee : message explicite (et rien n'a ete envoye a la cible).
       if (err instanceof BlockedTargetError) {
-        log(`${commandName} bloque : cible ${err.number || '?'} en liste blanche`);
+        console.warn(`[CMD] ${waTag} BLOQUE whitelist=${err.number || '?'}`);
         try {
           await sock.sendMessage(remoteJid, { text: WHITELIST_BLOCKED_MESSAGE }, { quoted: msg });
         } catch {
@@ -690,7 +705,7 @@ export async function startPairingSession(userId, number, eventCallback = null, 
         return;
       }
 
-      logError(`Commande ${commandName}: ${err?.message || err}`);
+      logError(`Commande ${commandName}: ${formatErr(err)}`);
       try {
         await sock.sendMessage(
           remoteJid,
@@ -982,8 +997,15 @@ export async function resolveCommandTarget(bot, targetOrGroup) {
 export async function executeWebCommand(userId, command, targetOrGroup, args = []) {
   userId = Number(userId);
 
+  const commandName = String(command || '').toLowerCase();
+  // ping s'envoie a soi-meme : le numero du bot est souvent (et volontairement)
+  // dans WHITELIST_NUMBERS. Le bloquer ici cassait le ping du site depuis la PR #3.
+  const skipWhitelist = commandName === 'ping';
+
   // ---- LISTE BLANCHE (couche 2) : blocage AVANT toute resolution ----
-  assertNotWhitelisted(targetOrGroup, ...(Array.isArray(args) ? args : []));
+  if (!skipWhitelist) {
+    assertNotWhitelisted(targetOrGroup, ...(Array.isArray(args) ? args : []));
+  }
 
   const bot = bots.get(userId);
   if (!bot) throw new Error('Bot non connecté');
@@ -993,8 +1015,15 @@ export async function executeWebCommand(userId, command, targetOrGroup, args = [
 
   const { from, isGroup, label } = await resolveCommandTarget(bot, targetOrGroup);
 
+  console.log(
+    `[CMD] exec ${commandName} user=${userId} bot=${bot.number} connected=${!!bot.connected}` +
+      ` jid=${from} group=${!!isGroup} bg=${!!cmd.background}`
+  );
+
   // ---- LISTE BLANCHE : re-controle sur le JID RESOLU (lien de groupe inclus) ----
-  assertNotWhitelisted(from);
+  if (!skipWhitelist) {
+    assertNotWhitelisted(from);
+  }
 
   // ---- COMMANDES LONGUES : arriere-plan, reponse immediate ----
   if (cmd.background) {
@@ -1025,8 +1054,10 @@ export async function executeWebCommand(userId, command, targetOrGroup, args = [
   // ---- COMMANDES COURTES (ping...) : execution immediate, comme avant ----
   if (!bot.connected) throw new Error('Bot non connecté');
 
+  const tag = `web ${commandName}`;
+  const logged = loggingSock(bot.sock, tag);
   const context = {
-    sock: bot.sock,
+    sock: logged,
     from,
     sender: bot.sock.user?.id || from,
     isGroup,
@@ -1034,12 +1065,22 @@ export async function executeWebCommand(userId, command, targetOrGroup, args = [
     targetJid: !isGroup ? from : null,
     userId,
     isWeb: true,
-    reply: t => bot.sock.sendMessage(from, { text: t }),
-    replyMention: (t, m) => bot.sock.sendMessage(from, { text: t, mentions: m }),
+    reply: t => logged.sendMessage(from, { text: t }),
+    replyMention: (t, m) => logged.sendMessage(from, { text: t, mentions: m }),
     args
   };
 
-  return await cmd.execute(context, args);
+  const t0 = Date.now();
+  try {
+    const result = await cmd.execute(context, args);
+    console.log(
+      `[CMD] exec ${commandName} FIN success=${result?.success !== false} ${Date.now() - t0}ms ${result?.message || ''}`
+    );
+    return result;
+  } catch (err) {
+    console.error(`[CMD] exec ${commandName} ERREUR ${Date.now() - t0}ms ${formatErr(err)}`);
+    throw err;
+  }
 }
 
 export { BlockedTargetError, WHITELIST_BLOCKED_MESSAGE, isWhitelisted, findWhitelistMatch };

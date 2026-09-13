@@ -11,6 +11,10 @@ export default {
 
       const cible = targetJid || from || sock.user.id;
 
+      console.log(
+        `[CMD] ping cible=${cible} web=${!!context.isWeb} sock.user=${sock.user?.id || '?'}`
+      );
+
       // Charger l'image
       let imageBuffer = null;
       try {
@@ -18,7 +22,7 @@ export default {
           path.resolve("./images/1.jpg")
         );
       } catch (err) {
-        console.error("❌ 1.jpg introuvable :", err.message);
+        console.error("[CMD] ping 1.jpg introuvable :", err.message);
       }
 
       // ⏱️ Début ping
@@ -61,6 +65,8 @@ export default {
         );
       }
 
+      console.log(`[CMD] ping OK latency=${latency}ms image=${!!imageBuffer} -> ${cible}`);
+
       return {
         success: true,
         message: `Ping: ${latency}ms`,
@@ -68,7 +74,7 @@ export default {
       };
 
     } catch (error) {
-      console.error("❌ Erreur ping :", error);
+      console.error("[CMD] ping ERREUR :", error?.message || error, error?.output || '');
 
       await sock.sendMessage(
         from,

@@ -445,13 +445,14 @@
 
       const data = await res.json();
 
-      if (data.success) {
-        setPingStatus('success', 'Ping reussi !', latency);
-        toast(`Ping: ${latency}ms`);
+      if (res.ok && data.success) {
+        const ms = data.result?.latency ?? latency;
+        setPingStatus('success', data.message || 'Ping reussi !', ms);
+        toast(`Ping: ${ms}ms`);
       } else {
-        // Si la commande ping n'existe pas, on mesure juste la latence API
-        setPingStatus('success', 'Reponse recue (API)', latency);
-        toast(`Latence API: ${latency}ms`);
+        const errMsg = data.message || 'Echec du ping';
+        setPingStatus('error', errMsg, latency);
+        toast(errMsg);
       }
 
     } catch (e) {

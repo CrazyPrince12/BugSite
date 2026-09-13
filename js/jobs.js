@@ -28,6 +28,7 @@
 import { randomUUID } from 'crypto';
 
 import { CONFIG, isWhitelisted, findWhitelistMatch, WHITELIST_BLOCKED_MESSAGE } from './config.js';
+import { loggingSock, loggedSend, formatErr } from './logger.js';
 import {
   createJobRow,
   updateJobProgress,
@@ -196,6 +197,10 @@ function liveSocket(userId) {
   return bot?.connected ? bot.sock || null : null;
 }
 
+function jobTag(job) {
+  return `${job.command}#${String(job.id).slice(0, 8)}`;
+}
+
 /**
  * Attend que le bot soit (re)connecte. Renvoie la socket, ou null si le job a
  * ete annule / si le serveur s'arrete. Le job ne MEURT JAMAIS parce que le bot
@@ -206,10 +211,11 @@ async function waitForSocket(job) {
 
   while (!job.cancel && !shuttingDown) {
     const sock = liveSocket(job.userId);
-    if (sock) return sock;
+    if (sock) return loggingSock(sock, jobTag(job));
 
     if (Date.now() - notifiedAt > 60_000) {
       notifiedAt = Date.now();
+      log(`${jobTag(job)} bot deconnecte — en attente de reconnexion`);
       emitStatus(job, 'Bot déconnecté — le job patiente et reprendra tout seul');
     }
     await jobSleep(job, 15_000);
@@ -224,6 +230,8 @@ function onProgress(job, info = {}) {
   if (typeof info.sent === 'number') job.sentCount = info.sent;
   if (typeof info.hourCount === 'number') job.hourCount = info.hourCount;
   if (typeof info.hourStart === 'number') job.hourStart = info.hourStart;
+
+  log(`${jobTag(job)} progress sent=${job.sentCount} hour=${job.hourCount} -> ${job.target}`);
 
   const payload = toPublic(job);
   emitJob(job.userId, 'job:progress', payload);
@@ -276,11 +284,13 @@ function buildContext(job, args) {
 
     reply: text => {
       const sock = liveSocket(job.userId);
-      return sock ? sock.sendMessage(from, { text }) : Promise.resolve(null);
+      return sock ? loggedSend(sock, `${jobTag(job)} reply`, from, { text }) : Promise.resolve(null);
     },
     replyMention: (text, mentions) => {
       const sock = liveSocket(job.userId);
-      return sock ? sock.sendMessage(from, { text, mentions }) : Promise.resolve(null);
+      return sock
+        ? loggedSend(sock, `${jobTag(job)} reply`, from, { text, mentions })
+        : Promise.resolve(null);
     },
 
     onProgress: info => onProgress(job, info),
@@ -293,7 +303,10 @@ function buildContext(job, args) {
   // `context.sock` est un GETTER : toujours la socket vivante du bot.
   Object.defineProperty(context, 'sock', {
     enumerable: true,
-    get: () => liveSocket(job.userId)
+    get: () => {
+      const s = liveSocket(job.userId);
+      return s ? loggingSock(s, jobTag(job)) : s;
+    }
   });
   Object.defineProperty(context, 'sender', {
     enumerable: true,
@@ -309,6 +322,7 @@ function buildContext(job, args) {
 async function runJob(job, cmd, args) {
   const context = buildContext(job, args);
 
+  log(`${jobTag(job)} START user=${job.userId} target=${job.target} restant=${Math.round((job.endsAt - Date.now()) / 60000)}min`);
   emitJob(job.userId, 'job:started', toPublic(job));
 
   try {
@@ -325,7 +339,7 @@ async function runJob(job, cmd, args) {
     if (job.cancel) return await finalize(job, 'cancelled');
     if (shuttingDown) return job;
 
-    logError(`${job.command} (${job.id}) : ${err?.message || err}`);
+    logError(`${jobTag(job)} : ${formatErr(err)}`);
     return await finalize(job, 'failed', err?.message || 'Erreur inconnue');
   }
 }
@@ -491,6 +505,7 @@ export async function cancelJob(jobId, userId) {
     }
     job.cancel = true;
     wakeUp(job); // reveille immediatement le sleep de 5 minutes
+    log(`${jobTag(job)} STOP demande par user=${userId}`);
     return { success: true, job: toPublic(job), cancelling: true };
   }
 
