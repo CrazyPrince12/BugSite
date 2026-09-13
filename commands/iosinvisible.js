@@ -32,8 +32,8 @@ export default {
     try {
       const config = {
         duration: context.durationMs || 30 * 60 * 1000,   //24 * 60 * 60 * 1000     24 heures
-        actionInterval: 500,                         //5 * 60 * 1000     5 minutes
-        maxPerHour: 100,                                        //12     Donc 12 par heures
+        actionInterval: 500,                              //5 * 60 * 1000     5 minutes
+        maxPerHour: 7200,                                 //12     Donc 12 par heures
       };
 
       const startTime = context.startedAt || Date.now();
