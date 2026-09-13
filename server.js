@@ -63,6 +63,9 @@ import {
   setJobsShuttingDown,
   countRunningJobs
 } from './js/jobs.js';
+import { installLiveLogs, formatErr } from './js/logger.js';
+
+installLiveLogs();
 
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
@@ -441,38 +444,61 @@ app.post('/api/bot/command', requireSession, async (req, res) => {
       return res.status(400).json({ success: false, message: 'Commande requise.' });
     }
 
-    const rawTarget = groupLink || target;
+    const commandName = String(command).toLowerCase();
+    // ping = test de latence vers SOI-MEME (inbox du bot). Ce n'est pas une
+    // attaque : si on appliquait la liste blanche ici, le ping du site serait
+    // toujours bloque des que le proprio a mis son propre numero dans
+    // WHITELIST_NUMBERS (ce qui est le cas d'usage recommande).
+    const isPing = commandName === 'ping';
+
+    const rawTarget = groupLink || target || (isPing ? user.wa_number : null);
     if (!rawTarget) {
       return res.status(400).json({ success: false, message: 'Cible ou groupe requis.' });
     }
+
+    const who = `${user.username || '?'}#${userId}`;
+    console.log(
+      `[CMD] WEB ${who} ${commandName} cible=${rawTarget}` +
+        (argList.length ? ` args=${JSON.stringify(argList)}` : '') +
+        (isPing ? ' (ping: whitelist ignoree)' : '')
+    );
 
     // --------------------------------------------------------
     //  LISTE BLANCHE (couche 1) — js/config.js > WHITELIST_NUMBERS
     //  Controle AVANT tout : si la cible est protegee, on ne lance rien,
     //  on ne resout rien, on n'ecrit rien en base.
+    //  Exception : ping (auto-test, pas un payload).
     // --------------------------------------------------------
-    for (const candidate of [rawTarget, ...argList]) {
-      if (isWhitelisted(candidate)) {
-        return res.status(403).json({
-          success: false,
-          blocked: true,
-          code: 'WHITELISTED',
-          number: findWhitelistMatch(candidate),
-          message: WHITELIST_BLOCKED_MESSAGE
-        });
+    if (!isPing) {
+      for (const candidate of [rawTarget, ...argList]) {
+        if (isWhitelisted(candidate)) {
+          const blocked = findWhitelistMatch(candidate);
+          console.warn(`[CMD] WEB ${who} ${commandName} BLOQUE whitelist=${blocked}`);
+          return res.status(403).json({
+            success: false,
+            blocked: true,
+            code: 'WHITELISTED',
+            number: blocked,
+            message: WHITELIST_BLOCKED_MESSAGE
+          });
+        }
       }
     }
 
     const targetOrGroup = groupLink
       ? groupLink
-      : String(target).includes('@')
-        ? target
-        : `${formatNumber(target)}@s.whatsapp.net`;
+      : String(rawTarget).includes('@')
+        ? rawTarget
+        : `${formatNumber(rawTarget)}@s.whatsapp.net`;
 
+    const t0 = Date.now();
     const result = await executeWebCommand(userId, command, targetOrGroup, argList);
 
     // Commande longue -> job en arriere-plan : 202 Accepted, reponse immediate.
     if (result?.queued) {
+      console.log(
+        `[CMD] WEB ${who} ${commandName} QUEUE job=${result.jobId} already=${!!result.alreadyRunning} ${Date.now() - t0}ms`
+      );
       return res.status(202).json({
         success: true,
         queued: true,
@@ -485,9 +511,13 @@ app.post('/api/bot/command', requireSession, async (req, res) => {
     }
 
     // Commande courte (ping...) -> resultat immediat.
+    console.log(
+      `[CMD] WEB ${who} ${commandName} DONE success=${result?.success !== false} ${Date.now() - t0}ms ${result?.message || ''}`
+    );
     return res.json({ success: true, message: result?.message, result });
   } catch (err) {
     if (err?.blocked || err?.code === 'WHITELISTED') {
+      console.warn(`[CMD] WEB BLOQUE ${err?.number || ''} ${formatErr(err)}`);
       return res.status(403).json({
         success: false,
         blocked: true,
@@ -496,6 +526,7 @@ app.post('/api/bot/command', requireSession, async (req, res) => {
         message: err?.message || WHITELIST_BLOCKED_MESSAGE
       });
     }
+    console.error(`[CMD] WEB FAIL ${formatErr(err)}`);
     const status = Number(err?.status) || 400;
     return res.status(status).json({ success: false, message: err?.message || 'Erreur interne' });
   }
@@ -530,6 +561,7 @@ app.get('/api/jobs/:id', requireSession, async (req, res) => {
 /** Bouton STOP : arrete la boucle a sa prochaine iteration (sleep interrompu). */
 app.post('/api/jobs/:id/stop', requireSession, async (req, res) => {
   try {
+    console.log(`[CMD] STOP job=${req.params.id} user=${req.session.user.id}`);
     const result = await cancelJob(req.params.id, req.session.user.id);
     if (!result?.success) {
       return res.status(404).json({ success: false, message: result?.message || 'Job introuvable' });
