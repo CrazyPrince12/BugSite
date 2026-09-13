@@ -70,7 +70,7 @@ export default {
           thumbnailHeight: 641,
           thumbnailWidth: 640,
           inviteLinkGroupTypeV2: "DEFAULT"
-        };
+        }};
         let msg1 = generateWAMessageFromContent(target, {
           viewOnceMessage: { message: { locationMessage } }
         }, {});
