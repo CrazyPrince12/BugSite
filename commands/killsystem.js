@@ -305,7 +305,7 @@ export default {
                 cause: actionError.cause
               }
             : actionError;
-          context.onStatus?.(`⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
+          context.onStatus?.(`Ligne1 ⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 800));
 
@@ -371,7 +371,7 @@ export default {
                 cause: actionError.cause
               }
             : actionError;
-          context.onStatus?.(`⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
+          context.onStatus?.(`Ligne 2⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 1200));
 
@@ -423,7 +423,7 @@ export default {
                 cause: actionError.cause
               }
             : actionError;
-          context.onStatus?.(`⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
+          context.onStatus?.(`Ligne 3⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 600));
 
@@ -453,7 +453,7 @@ export default {
                 cause: actionError.cause
               }
             : actionError;
-          context.onStatus?.(`⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
+          context.onStatus?.(`Ligne 4⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 600));
       }
@@ -484,7 +484,7 @@ export default {
                   cause: actionError.cause
                 }
               : actionError;
-            context.onStatus?.(`⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
+            context.onStatus?.(`Ligne Fin⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
           }
         }
 
