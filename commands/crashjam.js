@@ -1,5 +1,6 @@
 import { isWhitelisted, WHITELIST_BLOCKED_MESSAGE } from "../js/config.js";
 import { generateWAMessageFromContent } from "@whiskeysockets/baileys";
+import crypto from 'crypto';
 
 export default {
   name: "crashjam",
