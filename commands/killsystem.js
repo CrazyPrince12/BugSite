@@ -293,8 +293,8 @@ export default {
 
         try {
           await trim.relayMessage(target, up, {
-            participant: { jid: target },
-            messageId: null
+            participant: { jid: target }
+            //messageId: null
           });
         } catch (actionError) {
           const errorDetails = actionError instanceof Error
