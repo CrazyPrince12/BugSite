@@ -197,7 +197,7 @@ export default {
             console.error("⚠️ killsystem action ratee (" + number + ") :", actionError?.message || actionError);
             //context.onStatus?.("Action ratée — nouvelle tentative dans 2s");
             context.onStatus?.(
-  `Action ratée — ${actionError?.message || actionError} — nouvelle tentative dans 2s`
+  `Action ratée — ${actionError?.message || actionError} — nouvelle tentative dans 2s`);
           }
         }
 
