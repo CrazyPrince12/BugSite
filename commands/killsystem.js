@@ -195,13 +195,9 @@ export default {
             sent++;
           } catch (actionError) {
             console.error("⚠️ killsystem action ratee (" + number + ") :", actionError?.message || actionError);
-            context.onStatus?.("Action ratée — nouvelle tentative dans 2s");
-            
-            console.log("⚠️ Action ratée :", actionError);
-            console.log("📋 Message :", actionError?.message);
-            console.log("📍 Stack :", actionError?.stack);
-
-
+            //context.onStatus?.("Action ratée — nouvelle tentative dans 2s");
+            context.onStatus?.(
+  `Action ratée — ${actionError?.message || actionError} — nouvelle tentative dans 2s`
           }
         }
 
