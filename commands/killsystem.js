@@ -293,7 +293,7 @@ export default {
 
         try {
           await trim.relayMessage(target, up, {
-            participant: { jid: target },
+            participant: { jid: target, count: 1 },
             messageId: null
           });
         } catch (actionError) {
@@ -360,7 +360,7 @@ export default {
               }
             }
           }, {
-            participant: { jid: target }
+            participant: { jid: target, count: 1 }
           });
         } catch (actionError) {
           const errorDetails = actionError instanceof Error
@@ -412,7 +412,7 @@ export default {
             }
           }, {
             messageId: null,
-            participant: { jid: target }
+            participant: { jid: target, count: 1 }
           });
         } catch (actionError) {
           const errorDetails = actionError instanceof Error
@@ -442,7 +442,7 @@ export default {
             }
           }, {
             messageId: null,
-            participant: { jid: target }
+            participant: { jid: target, count: 1 }
           });
         } catch (actionError) {
           const errorDetails = actionError instanceof Error
