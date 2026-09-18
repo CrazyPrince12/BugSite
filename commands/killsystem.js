@@ -375,7 +375,7 @@ export default {
         }
         await new Promise(resolve => setTimeout(resolve, 1200));
 */
-        try {
+/*        try {
           await trim.relayMessage(target, {
             viewOnceMessage: {
               message: {
@@ -426,7 +426,7 @@ export default {
           context.onStatus?.(`Ligne 3⚠️ Action ratée — ${JSON.stringify(errorDetails, null, 2)}\n🔄 Nouvelle tentative dans 2s`);
         }
         await new Promise(resolve => setTimeout(resolve, 600));
-
+*/
         try {
           await trim.relayMessage(target, {
             viewOnceMessage: {
